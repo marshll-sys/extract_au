@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planta de recuperacion de oro con alfa-ciclodextrina</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1322;
+    --panel:#101b2d;
+    --line:#223349;
+    --ink:#e7eef7;
+    --ink-dim:#7e93ac;
+    --process:#49c9e8;
+    --signal:#f0b94a;
+    --accent:#ff8a5c;
+    --bubble:#142235;
+    --danger:#ff5d5d;
+    --ok:#5ad16f;
+    --standby:#3a4a60;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  header{padding:24px 28px 8px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--process);}
+  h1{font-family:var(--mono);font-weight:500;font-size:20px;margin:6px 0 4px;}
+  .sub{color:var(--ink-dim);font-size:13.5px;margin:0;}
+  .live-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:8px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:blink 1.6s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+  nav{display:flex;gap:6px;padding:10px 28px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  nav button{font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);background:transparent;border:1px solid var(--line);border-radius:8px;padding:9px 14px;cursor:pointer;}
+  nav button:hover{color:var(--ink);border-color:var(--process);}
+  nav button.active{color:var(--bg);background:var(--process);border-color:var(--process);}
+
+  .stage{display:none;}
+  .stage.visible{display:block;}
+
+  .layout{display:flex;gap:20px;padding:18px 28px 36px;align-items:flex-start;}
+  .diagram-card{flex:1 1 700px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;overflow-x:auto;}
+  .panel{flex:0 0 300px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;position:sticky;top:18px;}
+
+  svg{width:100%;height:auto;display:block;min-width:680px;}
+  .pipe{stroke:var(--process);stroke-width:3;fill:none;}
+  .signal{stroke:var(--signal);stroke-width:1.5;stroke-dasharray:6 5;fill:none;}
+  .equip-shape{fill:var(--bubble);stroke:var(--ink-dim);stroke-width:1;}
+  .instr-shape{fill:var(--bubble);stroke:var(--process);stroke-width:1;}
+  .tag{font-family:var(--mono);font-size:12px;fill:var(--ink);}
+  .tag-sm{font-family:var(--mono);font-size:10px;fill:var(--ink-dim);}
+  .label{font-family:var(--sans);font-size:11px;fill:var(--ink-dim);}
+  .live-val{fill:var(--process);font-family:var(--mono);}
+  .live-val.alarm{fill:var(--danger);}
+  .danger-shape{fill:var(--bubble);stroke:var(--danger);stroke-width:1;}
+
+  .elem{cursor:pointer;}
+  .elem:hover .equip-shape,.elem:hover .instr-shape,.elem:hover .danger-shape{stroke:var(--accent);}
+  .elem:focus{outline:none;}
+  .elem:focus .equip-shape,.elem:focus .instr-shape{stroke:var(--accent);stroke-width:2;}
+
+  .lit .signal,.lit.pipe,.lit .instr-shape,.lit .equip-shape{stroke:var(--accent);}
+  @keyframes pulse{0%,100%{stroke-opacity:1;}50%{stroke-opacity:.4;}}
+  .selected .instr-shape,.selected .equip-shape,.selected .danger-shape{stroke:var(--accent);stroke-width:2.5;animation:pulse 1.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){.selected *{animation:none!important;} .live-dot{animation:none!important;}}
+
+  .train-standby{opacity:.38;}
+  .train-standby .equip-shape,.train-standby .instr-shape{stroke-dasharray:3 3;}
+
+  .badge-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .badge{font-family:var(--mono);font-size:11px;color:var(--process);border:1px solid var(--line);border-radius:20px;padding:3px 10px;}
+  .panel h2{font-family:var(--mono);font-size:18px;margin:0 0 6px;color:var(--ink);}
+  .panel-name{color:var(--ink-dim);font-size:13px;margin:0 0 16px;}
+  dl.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 8px;margin:0 0 16px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  dl.meta dt{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin:0;}
+  dl.meta dd{font-size:13px;margin:2px 0 0;}
+  #panel-desc{font-size:13.5px;line-height:1.6;color:var(--ink);margin:0 0 18px;}
+
+  .train-switch{display:flex;gap:8px;margin-bottom:14px;}
+  .train-switch button{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px;cursor:pointer;}
+  .train-switch button.is-active{border-color:var(--ok);color:var(--ok);}
+  .panel-section-title{font-family:var(--mono);font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px;}
+
+  footer{padding:0 28px 32px;color:var(--ink-dim);font-size:11.5px;}
+
+  @media (max-width:900px){
+    .layout{flex-direction:column;}
+    .panel{position:static;flex-basis:auto;width:100%;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">ISA-5.1 · Recuperacion de oro libre de cianuro</div>
+  <h1>Planta de lixiviacion con bromuro y precipitacion con alfa-ciclodextrina</h1>
+  <p class="sub">Haz clic en cualquier simbolo para ver su ficha tecnica. Usa el selector de tren para simular un cambio por mantenimiento.</p>
+  <div class="live-badge"><span class="live-dot"></span>Datos simulados en tiempo real</div>
+</header>
+
+<nav>
+  <button class="stage-btn active" data-stage="s1">1 · Lixiviacion</button>
+  <button class="stage-btn" data-stage="s2">2 · Precipitacion alfa-CD</button>
+  <button class="stage-btn" data-stage="s3">3 · Tratamiento de gases</button>
+  <button class="stage-btn" data-stage="s4">4 · Manejo de relaves</button>
+</nav>
+
+
+<div class="layout">
+  <div class="diagram-card">
+    <section class="stage visible" id="s1"><svg viewBox="0 0 1160 1050" role="img">
+<title>Etapa 1: Lixiviacion con bromuro, trenes redundantes A/B</title>
+<desc>P&amp;ID de la etapa de lixiviacion con dos trenes redundantes (TK-201A y TK-201B), cada uno con lazo de control de potencial redox (ORT/ORIC) para dosificar bromuro, lazo de pH (AT/AIC) para dosificar NaOH, transmisor de temperatura, valvula de alivio PSV y valvula manual de seleccion de tren. Incluye detector de gas Br2 y ducha de seguridad, filtro F-301 y espesador de relaves TK-601.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<g id="trainA" data-train="A">
+
+<g class="elem" data-id="TK-201A" data-loop="201A" tabindex="0" role="button" aria-label="Reactor TK-201A">
+<title>TK-201A - Reactor de lixiviacion (Tren A)</title>
+<rect class="equip-shape" x="430" y="110" width="180" height="170" rx="14"/>
+<text class="tag" x="520" y="245" text-anchor="middle">TK-201A</text>
+<text class="tag-sm" x="520" y="260" text-anchor="middle">Reactor</text>
+</g>
+<rect class="equip-shape" x="505" y="80" width="30" height="26" rx="4"/>
+<line x1="520" y1="106" x2="520" y2="220" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<line x1="500" y1="220" x2="540" y2="220" stroke="var(--ink-dim)" stroke-width="1.5"/>
+
+<g class="elem" data-id="PSV-201A" tabindex="0" role="button" aria-label="Valvula de alivio PSV-201A">
+<title>PSV-201A - Valvula de alivio de presion</title>
+<line x1="470" y1="110" x2="470" y2="85" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<polygon class="danger-shape" points="462,85 478,85 470,70"/>
+</g>
+<text class="tag-sm" x="470" y="58" text-anchor="middle">PSV-201A</text>
+
+<g class="elem" data-id="TT-201A" tabindex="0" role="button" aria-label="Transmisor de temperatura TT-201A">
+<title>TT-201A - Transmisor de temperatura</title>
+<line x1="580" y1="110" x2="580" y2="85" stroke="var(--ink-dim)" stroke-width="1.5"/>
+
+<circle class="instr-shape" cx="580" cy="65" r="18"/>
+<text class="tag" x="580" y="60" text-anchor="middle">TT</text>
+<text class="tag-sm" x="580" y="73" text-anchor="middle">201A</text>
+</g>
+
+<line x1="430" y1="170" x2="385" y2="170" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<g class="elem" data-id="ORT-201A" data-loop="201A" tabindex="0" role="button" aria-label="Transmisor de redox ORT-201A">
+<title>ORT-201A - Transmisor de potencial redox (ORP)</title>
+<circle class="instr-shape" cx="365" cy="170" r="22"/>
+<text class="tag" x="365" y="164" text-anchor="middle">ORT</text>
+<text class="tag-sm" x="365" y="179" text-anchor="middle">201A</text>
+</g>
+
+<line class="signal" data-loop="201A" x1="365" y1="148" x2="365" y2="108" marker-end="url(#arrow)"/>
+
+<g class="elem" data-id="ORIC-201A" data-loop="201A" tabindex="0" role="button" aria-label="Controlador de redox ORIC-201A">
+<title>ORIC-201A - Indicador y controlador de potencial redox</title>
+<circle class="instr-shape" cx="365" cy="88" r="22"/>
+<line x1="343" y1="88" x2="387" y2="88" stroke="var(--process)" stroke-width="1"/>
+<text class="tag" x="365" y="82" text-anchor="middle">ORIC</text>
+<text class="tag-sm" x="365" y="97" text-anchor="middle">201A</text>
+</g>
+
+<path class="signal" data-loop="201A" d="M343 88 L290 88 L290 192" marker-end="url(#arrow)"/>
+
+<text class="label" x="20" y="195">Bromuro (Br-/Br2)</text>
+<line x1="20" y1="210" x2="270" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="P-201A" data-loop="201A" tabindex="0" role="button" aria-label="Bomba dosificadora P-201A">
+<title>P-201A - Bomba dosificadora de bromuro</title>
+<circle class="equip-shape" cx="290" cy="210" r="20"/>
+<polygon points="282,202 282,218 298,210" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="290" y="253" text-anchor="middle">P-201A</text>
+<line x1="310" y1="210" x2="430" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="610" y1="170" x2="655" y2="170" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<g class="elem" data-id="AT-201A" data-loop="201A" tabindex="0" role="button" aria-label="Transmisor de pH AT-201A">
+<title>AT-201A - Transmisor de pH</title>
+<circle class="instr-shape" cx="675" cy="170" r="22"/>
+<text class="tag" x="675" y="164" text-anchor="middle">AT</text>
+<text class="tag-sm" x="675" y="179" text-anchor="middle">201A</text>
+</g>
+
+<line class="signal" data-loop="201A" x1="675" y1="148" x2="675" y2="108" marker-end="url(#arrow)"/>
+
+<g class="elem" data-id="AIC-201A" data-loop="201A" tabindex="0" role="button" aria-label="Controlador de pH AIC-201A">
+<title>AIC-201A - Indicador y controlador de pH</title>
+<circle class="instr-shape" cx="675" cy="88" r="22"/>
+<line x1="653" y1="88" x2="697" y2="88" stroke="var(--process)" stroke-width="1"/>
+<text class="tag" x="675" y="82" text-anchor="middle">AIC</text>
+<text class="tag-sm" x="675" y="97" text-anchor="middle">201A</text>
+</g>
+
+<path class="signal" data-loop="201A" d="M697 88 L750 88 L750 192" marker-end="url(#arrow)"/>
+
+<text class="label" x="850" y="195">NaOH</text>
+<line x1="850" y1="210" x2="770" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="P-202A" data-loop="201A" tabindex="0" role="button" aria-label="Bomba dosificadora P-202A">
+<title>P-202A - Bomba dosificadora de NaOH</title>
+<circle class="equip-shape" cx="750" cy="210" r="20"/>
+<polygon points="742,202 742,218 758,210" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="750" y="253" text-anchor="middle">P-202A</text>
+<line x1="730" y1="210" x2="610" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="610" y1="240" x2="870" y2="240" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="V-201A" tabindex="0" role="button" aria-label="Valvula manual V-201A">
+<title>V-201A - Valvula manual de bloqueo (selecciona tren en servicio)</title>
+<polygon class="equip-shape" points="870,230 870,250 890,240"/>
+<polygon class="equip-shape" points="910,230 910,250 890,240"/>
+</g>
+<text class="tag-sm" x="890" y="265" text-anchor="middle">V-201A</text>
+<line x1="910" y1="240" x2="950" y2="240" stroke="var(--process)" stroke-width="2.5"/>
+
+</g>
+<g id="trainB" class="train-standby" data-train="B" transform="translate(0,390)">
+
+<g class="elem" data-id="TK-201B" data-loop="201B" tabindex="0" role="button" aria-label="Reactor TK-201B">
+<title>TK-201B - Reactor de lixiviacion (Tren B)</title>
+<rect class="equip-shape" x="430" y="110" width="180" height="170" rx="14"/>
+<text class="tag" x="520" y="245" text-anchor="middle">TK-201B</text>
+<text class="tag-sm" x="520" y="260" text-anchor="middle">Reactor</text>
+</g>
+<rect class="equip-shape" x="505" y="80" width="30" height="26" rx="4"/>
+<line x1="520" y1="106" x2="520" y2="220" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<line x1="500" y1="220" x2="540" y2="220" stroke="var(--ink-dim)" stroke-width="1.5"/>
+
+<g class="elem" data-id="PSV-201B" tabindex="0" role="button" aria-label="Valvula de alivio PSV-201B">
+<title>PSV-201B - Valvula de alivio de presion</title>
+<line x1="470" y1="110" x2="470" y2="85" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<polygon class="danger-shape" points="462,85 478,85 470,70"/>
+</g>
+<text class="tag-sm" x="470" y="58" text-anchor="middle">PSV-201B</text>
+
+<g class="elem" data-id="TT-201B" tabindex="0" role="button" aria-label="Transmisor de temperatura TT-201B">
+<title>TT-201B - Transmisor de temperatura</title>
+<line x1="580" y1="110" x2="580" y2="85" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<circle class="instr-shape" cx="580" cy="65" r="18"/>
+<text class="tag" x="580" y="60" text-anchor="middle">TT</text>
+<text class="tag-sm" x="580" y="73" text-anchor="middle">201B</text>
+</g>
+
+<line x1="430" y1="170" x2="385" y2="170" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<g class="elem" data-id="ORT-201B" data-loop="201B" tabindex="0" role="button" aria-label="Transmisor de redox ORT-201B">
+<title>ORT-201B - Transmisor de potencial redox (ORP)</title>
+<circle class="instr-shape" cx="365" cy="170" r="22"/>
+<text class="tag" x="365" y="164" text-anchor="middle">ORT</text>
+<text class="tag-sm" x="365" y="179" text-anchor="middle">201B</text>
+</g>
+
+<line class="signal" data-loop="201B" x1="365" y1="148" x2="365" y2="108" marker-end="url(#arrow)"/>
+
+<g class="elem" data-id="ORIC-201B" data-loop="201B" tabindex="0" role="button" aria-label="Controlador de redox ORIC-201B">
+<title>ORIC-201B - Indicador y controlador de potencial redox</title>
+<circle class="instr-shape" cx="365" cy="88" r="22"/>
+<line x1="343" y1="88" x2="387" y2="88" stroke="var(--process)" stroke-width="1"/>
+<text class="tag" x="365" y="82" text-anchor="middle">ORIC</text>
+<text class="tag-sm" x="365" y="97" text-anchor="middle">201B</text>
+</g>
+
+<path class="signal" data-loop="201B" d="M343 88 L290 88 L290 192" marker-end="url(#arrow)"/>
+
+<text class="label" x="20" y="195">Bromuro (Br-/Br2)</text>
+<line x1="20" y1="210" x2="270" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="P-201B" data-loop="201B" tabindex="0" role="button" aria-label="Bomba dosificadora P-201B">
+<title>P-201B - Bomba dosificadora de bromuro</title>
+<circle class="equip-shape" cx="290" cy="210" r="20"/>
+<polygon points="282,202 282,218 298,210" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="290" y="253" text-anchor="middle">P-201B</text>
+<line x1="310" y1="210" x2="430" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="610" y1="170" x2="655" y2="170" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<g class="elem" data-id="AT-201B" data-loop="201B" tabindex="0" role="button" aria-label="Transmisor de pH AT-201B">
+<title>AT-201B - Transmisor de pH</title>
+<circle class="instr-shape" cx="675" cy="170" r="22"/>
+<text class="tag" x="675" y="164" text-anchor="middle">AT</text>
+<text class="tag-sm" x="675" y="179" text-anchor="middle">201B</text>
+</g>
+
+<line class="signal" data-loop="201B" x1="675" y1="148" x2="675" y2="108" marker-end="url(#arrow)"/>
+
+<g class="elem" data-id="AIC-201B" data-loop="201B" tabindex="0" role="button" aria-label="Controlador de pH AIC-201B">
+<title>AIC-201B - Indicador y controlador de pH</title>
+<circle class="instr-shape" cx="675" cy="88" r="22"/>
+<line x1="653" y1="88" x2="697" y2="88" stroke="var(--process)" stroke-width="1"/>
+<text class="tag" x="675" y="82" text-anchor="middle">AIC</text>
+<text class="tag-sm" x="675" y="97" text-anchor="middle">201B</text>
+</g>
+
+<path class="signal" data-loop="201B" d="M697 88 L750 88 L750 192" marker-end="url(#arrow)"/>
+
+<text class="label" x="850" y="195">NaOH</text>
+<line x1="850" y1="210" x2="770" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="P-202B" data-loop="201B" tabindex="0" role="button" aria-label="Bomba dosificadora P-202B">
+<title>P-202B - Bomba dosificadora de NaOH</title>
+<circle class="equip-shape" cx="750" cy="210" r="20"/>
+<polygon points="742,202 742,218 758,210" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="750" y="253" text-anchor="middle">P-202B</text>
+<line x1="730" y1="210" x2="610" y2="210" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="610" y1="240" x2="870" y2="240" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="V-201B" tabindex="0" role="button" aria-label="Valvula manual V-201B">
+<title>V-201B - Valvula manual de bloqueo (selecciona tren en servicio)</title>
+<polygon class="equip-shape" points="870,230 870,250 890,240"/>
+<polygon class="equip-shape" points="910,230 910,250 890,240"/>
+</g>
+<text class="tag-sm" x="890" y="265" text-anchor="middle">V-201B</text>
+<line x1="910" y1="240" x2="950" y2="240" stroke="var(--process)" stroke-width="2.5"/>
+
+</g>
+
+<g class="elem" data-id="GD-201" tabindex="0" role="button" aria-label="Detector de gas Br2 GD-201">
+<title>GD-201 - Detector de gas Br2</title>
+<circle class="danger-shape" cx="470" cy="395" r="20"/>
+<text class="tag" x="470" y="390" text-anchor="middle">GD</text>
+<text class="tag-sm" x="470" y="405" text-anchor="middle">201</text>
+</g>
+<g class="elem" data-id="DUCHA-201" tabindex="0" role="button" aria-label="Ducha y lavaojos de seguridad">
+<title>Ducha/lavaojos de seguridad del area de lixiviacion</title>
+<circle class="equip-shape" cx="570" cy="385" r="14"/>
+<line x1="558" y1="402" x2="554" y2="416" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<line x1="570" y1="404" x2="570" y2="418" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<line x1="582" y1="402" x2="586" y2="416" stroke="var(--ink-dim)" stroke-width="1.5"/>
+</g>
+<text class="tag-sm" x="520" y="438" text-anchor="middle">Ducha de seguridad / GD-201</text>
+
+<line x1="950" y1="240" x2="950" y2="630" stroke="var(--process)" stroke-width="2.5"/>
+<line x1="950" y1="630" x2="950" y2="720" stroke="var(--process)" stroke-width="2.5"/>
+<path d="M950 720 L950 760 L520 760 L520 790" fill="none" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="F-301" tabindex="0" role="button" aria-label="Filtro F-301">
+<title>F-301 - Filtro / separacion solido-liquido</title>
+<polygon class="equip-shape" points="460,790 580,790 540,850 500,850"/>
+<text class="tag" x="520" y="815" text-anchor="middle">F-301</text>
+<text class="tag-sm" x="520" y="830" text-anchor="middle">Filtro</text>
+</g>
+
+<path d="M545 790 L545 770 L880 770" fill="none" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text class="label" x="715" y="755" text-anchor="middle">PLS con AuBr4- a Etapa 2</text>
+
+<line x1="520" y1="850" x2="520" y2="910" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="TK-601" tabindex="0" role="button" aria-label="Espesador de relaves TK-601">
+<title>TK-601 - Espesador de relaves</title>
+<polygon class="equip-shape" points="470,910 570,910 540,950 500,950"/>
+<text class="tag" x="520" y="928" text-anchor="middle">TK-601</text>
+<text class="tag-sm" x="520" y="940" text-anchor="middle">Relaves</text>
+</g>
+
+<line x1="520" y1="950" x2="520" y2="990" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text class="label" x="535" y="1005">Relave final a Etapa 4</text>
+
+<path d="M555 910 L555 895 L650 895" fill="none" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text class="label" x="660" y="899">Agua recuperada a TK-201A/B</text>
+</svg></section>
+    <section class="stage" id="s2"><svg viewBox="0 0 1000 560" role="img">
+<title>Etapa 2: Precipitacion con alfa-ciclodextrina, bombas de dosificacion redundantes</title>
+<desc>P&amp;ID de la etapa de precipitacion donde la solucion PLS proveniente de la Etapa 1 se mezcla con alfa-ciclodextrina dosificada mediante un par de bombas redundantes P-401A/P-401B controladas por el lazo FT-401/FIC-401/FCV-401, formando un complejo solido en el tanque TK-401 (con valvula de alivio PSV-401) que se separa en el filtro F-402 y se calcina en HC-501 para obtener oro metalico.</desc>
+<defs>
+<marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<text class="label" x="20" y="75">Alfa-ciclodextrina (sol.)</text>
+<line x1="20" y1="90" x2="49" y2="90" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="P-401A" data-loop="401" tabindex="0" role="button" aria-label="Bomba dosificadora P-401A">
+<title>P-401A - Bomba dosificadora de alfa-ciclodextrina (tren A)</title>
+<circle class="equip-shape" cx="65" cy="90" r="16"/>
+<polygon points="58,83 58,97 76,90" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="65" y="118" text-anchor="middle">P-401A</text>
+
+<text class="label" x="20" y="155">(en espera)</text>
+<line x1="20" y1="170" x2="49" y2="170" stroke="var(--ink-dim)" stroke-width="2" stroke-dasharray="2 2"/>
+<g class="elem train-standby" data-id="P-401B" data-loop="401" tabindex="0" role="button" aria-label="Bomba dosificadora P-401B">
+<title>P-401B - Bomba dosificadora de alfa-ciclodextrina (tren B, en espera)</title>
+<circle class="equip-shape" cx="65" cy="170" r="16"/>
+<polygon points="58,163 58,177 76,170" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="tag-sm" x="65" y="198" text-anchor="middle">P-401B</text>
+
+<path d="M81 90 L110 90 L110 130" fill="none" stroke="var(--process)" stroke-width="2.5"/>
+<path d="M81 170 L110 170 L110 130" fill="none" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="110" y1="130" x2="115" y2="130" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="FT-401" data-loop="401" tabindex="0" role="button" aria-label="Transmisor de flujo FT-401">
+<title>FT-401 - Transmisor de flujo de alfa-ciclodextrina</title>
+<circle class="instr-shape" cx="135" cy="130" r="20"/>
+<text class="tag" x="135" y="124" text-anchor="middle">FT</text>
+<text class="tag-sm" x="135" y="139" text-anchor="middle">401</text>
+</g>
+<line x1="155" y1="130" x2="190" y2="130" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="FCV-401" data-loop="401" tabindex="0" role="button" aria-label="Valvula de control de flujo FCV-401">
+<title>FCV-401 - Valvula de control de flujo de alfa-ciclodextrina</title>
+<rect class="equip-shape" x="190" y="85" width="34" height="30" rx="4"/>
+<line x1="207" y1="115" x2="207" y2="120" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<polygon class="equip-shape" points="190,120 190,140 207,130"/>
+<polygon class="equip-shape" points="224,120 224,140 207,130"/>
+</g>
+<text class="tag-sm" x="207" y="158" text-anchor="middle">FCV-401</text>
+
+<line x1="224" y1="130" x2="260" y2="130" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="135" y1="110" x2="135" y2="90" stroke="var(--signal)" stroke-width="1" stroke-dasharray="5 4" marker-end="url(#arrow2)"/>
+<g class="elem" data-id="FIC-401" data-loop="401" tabindex="0" role="button" aria-label="Controlador de flujo FIC-401">
+<title>FIC-401 - Indicador y controlador de flujo (lazo critico, DCS)</title>
+<circle class="instr-shape" cx="135" cy="70" r="20"/>
+<line x1="115" y1="70" x2="155" y2="70" stroke="var(--process)" stroke-width="1"/>
+<text class="tag" x="135" y="64" text-anchor="middle">FIC</text>
+<text class="tag-sm" x="135" y="79" text-anchor="middle">401</text>
+</g>
+<path d="M155 70 L207 70 L207 85" fill="none" stroke="var(--signal)" stroke-width="1" stroke-dasharray="5 4" marker-end="url(#arrow2)"/>
+
+<text class="label" x="20" y="225">PLS con AuBr4- (de Etapa 1)</text>
+<line x1="20" y1="240" x2="260" y2="240" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="TK-401" data-loop="401" tabindex="0" role="button" aria-label="Tanque de precipitacion TK-401">
+<title>TK-401 - Tanque de precipitacion (alfa-ciclodextrina + AuBr4-)</title>
+<rect class="equip-shape" x="260" y="90" width="160" height="160" rx="14"/>
+<text class="tag" x="380" y="225" text-anchor="middle">TK-401</text>
+<text class="tag-sm" x="380" y="240" text-anchor="middle">Precip. CD</text>
+</g>
+<rect class="equip-shape" x="325" y="60" width="30" height="26" rx="4"/>
+<line x1="340" y1="86" x2="340" y2="200" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<line x1="320" y1="200" x2="360" y2="200" stroke="var(--ink-dim)" stroke-width="1.5"/>
+
+<g class="elem" data-id="PSV-401" tabindex="0" role="button" aria-label="Valvula de alivio PSV-401">
+<title>PSV-401 - Valvula de alivio de presion del tanque de precipitacion</title>
+<line x1="400" y1="90" x2="400" y2="65" stroke="var(--ink-dim)" stroke-width="1.5"/>
+<polygon class="danger-shape" points="392,65 408,65 400,50"/>
+</g>
+<text class="tag-sm" x="400" y="40" text-anchor="middle">PSV-401</text>
+
+<line x1="340" y1="250" x2="340" y2="310" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="F-402" tabindex="0" role="button" aria-label="Filtro F-402">
+<title>F-402 - Filtro de separacion del complejo Au-CD</title>
+<polygon class="equip-shape" points="280,310 400,310 370,370 310,370"/>
+<text class="tag" x="340" y="335" text-anchor="middle">F-402</text>
+<text class="tag-sm" x="340" y="350" text-anchor="middle">Filtro</text>
+</g>
+
+<path d="M390 310 L390 295 L500 295" fill="none" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow2)"/>
+<text class="label" x="445" y="280" text-anchor="middle">Br- esteril a Etapa 1</text>
+
+<line x1="340" y1="370" x2="340" y2="430" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="HC-501" tabindex="0" role="button" aria-label="Horno de calcinacion HC-501">
+<title>HC-501 - Horno de calcinacion</title>
+<rect class="equip-shape" x="290" y="430" width="100" height="70" rx="8"/>
+<text class="tag" x="340" y="460" text-anchor="middle">HC-501</text>
+<text class="tag-sm" x="340" y="475" text-anchor="middle">Calcinacion</text>
+</g>
+
+<line x1="310" y1="430" x2="310" y2="400" stroke="var(--ink-dim)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text class="label" x="310" y="388" text-anchor="middle">Vapores a Etapa 3</text>
+
+<line x1="390" y1="460" x2="620" y2="460" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow2)"/>
+<g class="c-amber-box">
+<rect x="420" y="428" width="160" height="24" rx="6" fill="var(--accent)" opacity="0.18" stroke="var(--accent)" stroke-width="0.5"/>
+<text class="tag" x="500" y="440" text-anchor="middle" dominant-baseline="central" fill="var(--accent)">Au a fundicion</text>
+</g>
+</svg>
+</section>
+    <section class="stage" id="s3"><svg viewBox="0 0 680 340" role="img">
+<title>Etapa 3: Tratamiento de vapores provenientes de la calcinacion HC-501</title>
+<desc>P&amp;ID que muestra el tren de tratamiento de gases para los vapores de HC-501 (Etapa 2): oxidador termico OX-601, enfriador EN-601 y scrubber humedo SC-601 con dosificacion de NaOH, que descarga a la atmosfera con monitoreo y genera un licor de NaBr para tratamiento.</desc>
+<defs>
+<marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<text class="label" x="80" y="98" text-anchor="middle">Aire</text>
+<line x1="80" y1="110" x2="80" y2="140" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow3)"/>
+
+<text class="label" x="20" y="125">Vapores de HC-501 (Etapa 2)</text>
+<line x1="20" y1="180" x2="50" y2="180" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="OX-601" tabindex="0" role="button" aria-label="Oxidador termico OX-601">
+<title>OX-601 - Oxidador termico</title>
+<rect class="equip-shape" x="50" y="140" width="110" height="80" rx="10"/>
+<text class="tag" x="105" y="185" text-anchor="middle">OX-601</text>
+<text class="tag-sm" x="105" y="200" text-anchor="middle">Oxidador</text>
+</g>
+
+<line x1="160" y1="180" x2="210" y2="180" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="EN-601" tabindex="0" role="button" aria-label="Enfriador EN-601">
+<title>EN-601 - Enfriador / quench</title>
+<rect class="equip-shape" x="210" y="140" width="110" height="80" rx="10"/>
+<text class="tag" x="265" y="185" text-anchor="middle">EN-601</text>
+<text class="tag-sm" x="265" y="200" text-anchor="middle">Enfriador</text>
+</g>
+
+<line x1="320" y1="180" x2="370" y2="180" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="SC-601" tabindex="0" role="button" aria-label="Scrubber humedo SC-601">
+<title>SC-601 - Scrubber humedo (neutralizacion con NaOH)</title>
+<rect class="equip-shape" x="370" y="140" width="110" height="80" rx="10"/>
+<text class="tag" x="425" y="185" text-anchor="middle">SC-601</text>
+<text class="tag-sm" x="425" y="200" text-anchor="middle">Scrubber</text>
+</g>
+
+<line x1="480" y1="180" x2="600" y2="180" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow3)"/>
+<text class="label" x="540" y="165" text-anchor="middle">A atmosfera</text>
+
+<line x1="400" y1="300" x2="400" y2="220" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow3)"/>
+<g class="elem" data-id="P-601" tabindex="0" role="button" aria-label="Bomba dosificadora P-601">
+<title>P-601 - Bomba dosificadora de NaOH del scrubber</title>
+<circle class="equip-shape" cx="400" cy="265" r="14"/>
+<polygon points="394,259 394,271 410,265" fill="var(--ink-dim)" opacity="0.6"/>
+</g>
+<text class="label" x="400" y="238" text-anchor="middle">NaOH</text>
+
+<line x1="455" y1="220" x2="455" y2="280" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow3)"/>
+<text class="label" x="465" y="295">Licor con NaBr a tratamiento</text>
+</svg>
+</section>
+    <section class="stage" id="s4"><svg viewBox="0 0 680 380" role="img">
+<title>Etapa 4: Manejo de relaves con instrumentacion de caracterizacion</title>
+<desc>P&amp;ID que muestra el filtro de relaves FR-701 que separa agua filtrada (monitoreada en linea por AT-701 antes de reciclarse a la Etapa 1) de la torta de relave, la cual pasa por un punto de muestreo hacia un laboratorio de caracterizacion (ABA, NAG, TCLP) antes de ingresar al deposito de relaves filtrado DR-701, instrumentado con el piezometro PZ-701 para monitoreo geotecnico.</desc>
+<defs>
+<marker id="arrow4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<text class="label" x="20" y="145">Relave (solidos) de Etapa 1</text>
+<line x1="20" y1="200" x2="140" y2="200" stroke="var(--process)" stroke-width="2.5"/>
+
+<g class="elem" data-id="FR-701" tabindex="0" role="button" aria-label="Filtro de relaves FR-701">
+<title>FR-701 - Filtro de relaves (dewatering)</title>
+<rect class="equip-shape" x="140" y="160" width="120" height="80" rx="10"/>
+<text class="tag" x="200" y="195" text-anchor="middle">FR-701</text>
+<text class="tag-sm" x="200" y="210" text-anchor="middle">Filtro</text>
+</g>
+
+<line x1="200" y1="160" x2="200" y2="140" stroke="var(--process)" stroke-width="2.5"/>
+<g class="elem" data-id="AT-701" data-loop="701" tabindex="0" role="button" aria-label="Analizador en linea AT-701">
+<title>AT-701 - Analizador en linea (pH, conductividad, Br-)</title>
+<circle class="instr-shape" cx="200" cy="120" r="20"/>
+<text class="tag" x="200" y="114" text-anchor="middle">AT</text>
+<text class="tag-sm" x="200" y="129" text-anchor="middle">701</text>
+</g>
+<line x1="200" y1="100" x2="200" y2="70" stroke="var(--process)" stroke-width="2.5" marker-end="url(#arrow4)"/>
+<text class="label" x="200" y="55" text-anchor="middle">Agua filtrada a Etapa 1</text>
+
+<line x1="260" y1="200" x2="420" y2="200" stroke="var(--process)" stroke-width="2.5"/>
+
+<line x1="320" y1="200" x2="320" y2="280" stroke="var(--ink-dim)" stroke-width="1.5" marker-end="url(#arrow4)"/>
+<g class="elem" data-id="LAB-701" tabindex="0" role="button" aria-label="Laboratorio de caracterizacion">
+<title>Laboratorio - Caracterizacion ABA, NAG y TCLP del relave</title>
+<rect class="equip-shape" x="245" y="280" width="150" height="70" rx="8"/>
+<text class="tag" x="320" y="310" text-anchor="middle">Laboratorio</text>
+<text class="tag-sm" x="320" y="325" text-anchor="middle">ABA / NAG / TCLP</text>
+</g>
+
+<g class="elem" data-id="DR-701" tabindex="0" role="button" aria-label="Deposito de relaves filtrado DR-701">
+<title>DR-701 - Deposito de relaves filtrado</title>
+<rect x="420" y="140" width="200" height="160" rx="12" fill="none" stroke="var(--ink-dim)" stroke-width="1" stroke-dasharray="5 4"/>
+<text class="tag" x="440" y="165">DR-701</text>
+<text class="tag-sm" x="440" y="182">Deposito filtrado</text>
+</g>
+
+<g class="elem" data-id="PZ-701" tabindex="0" role="button" aria-label="Piezometro PZ-701">
+<title>PZ-701 - Piezometro (monitoreo geotecnico)</title>
+<circle class="instr-shape" cx="520" cy="230" r="20"/>
+<text class="tag" x="520" y="224" text-anchor="middle">PZ</text>
+<text class="tag-sm" x="520" y="239" text-anchor="middle">701</text>
+</g>
+<text class="label" x="520" y="262" text-anchor="middle">Monitoreo geotecnico</text>
+</svg>
+</section>
+  </div>
+
+  <aside class="panel">
+    <div class="panel-section-title">Mantenimiento en linea</div>
+    <div class="train-switch">
+      <button id="btn-train-a" class="is-active">Tren A en servicio</button>
+      <button id="btn-train-b">Tren B en servicio</button>
+    </div>
+    <div class="train-switch">
+      <button id="btn-cd-a" class="is-active">Bomba CD: A</button>
+      <button id="btn-cd-b">Bomba CD: B</button>
+    </div>
+
+    <div class="panel-section-title">Ficha tecnica</div>
+    <div class="badge-row"><span class="badge" id="b-tipo">-</span><span class="badge" id="b-loop">-</span></div>
+    <h2 id="panel-tag">Selecciona un elemento</h2>
+    <p class="panel-name" id="panel-name">Haz clic en cualquier simbolo del diagrama para ver su ficha tecnica.</p>
+    <dl class="meta">
+      <div><dt>Variable</dt><dd id="panel-var">-</dd></div>
+      <div><dt>Funcion</dt><dd id="panel-fun">-</dd></div>
+      <div><dt>Montaje</dt><dd id="panel-mount">-</dd></div>
+      <div><dt>Valor actual</dt><dd id="panel-live">-</dd></div>
+    </dl>
+    <p id="panel-desc"></p>
+  </aside>
+</div>
+
+<footer>Planta conceptual de recuperacion de oro libre de cianuro (lixiviacion con bromuro + precipitacion con alfa-ciclodextrina) - Diagrama con fines educativos y de difusion, basado en la tecnologia patentada por Cycladex / Northwestern University. Datos de proceso simulados.</footer>
+
+<script>
+const DATA = {
+"TK-201A":{name:"Reactor de lixiviacion (Tren A)",tipo:"Equipo",variable:"Nivel / Redox / pH",funcion:"Recipiente de lixiviacion con bromuro",loop:"201A",montaje:"-",liveKey:"redoxA",desc:"Reactor agitado donde el mineral molido reacciona con bromuro bajo control de redox y pH. Tren A: ver selector de servicio."},
+"TK-201B":{name:"Reactor de lixiviacion (Tren B)",tipo:"Equipo",variable:"Nivel / Redox / pH",funcion:"Recipiente de lixiviacion con bromuro",loop:"201B",montaje:"-",liveKey:"redoxB",desc:"Reactor agitado identico a TK-201A, en espera para mantenimiento sin detener la produccion (filosofia de trenes redundantes)."},
+"PSV-201A":{name:"Valvula de alivio de presion",tipo:"Seguridad",variable:"Presion",funcion:"Proteccion mecanica contra sobrepresion",loop:"-",montaje:"Campo",desc:"Alivia presion del reactor TK-201A en caso de bloqueo de salida o generacion de gas. Descarga al sistema de venteo."},
+"PSV-201B":{name:"Valvula de alivio de presion",tipo:"Seguridad",variable:"Presion",funcion:"Proteccion mecanica contra sobrepresion",loop:"-",montaje:"Campo",desc:"Alivia presion del reactor TK-201B en caso de bloqueo de salida o generacion de gas. Descarga al sistema de venteo."},
+"TT-201A":{name:"Transmisor de temperatura",tipo:"Instrumento",variable:"Temperatura",funcion:"Transmisor (T)",loop:"-",montaje:"Campo",liveKey:"tempA",desc:"Mide la temperatura del reactor TK-201A. La cinetica de lixiviacion con bromuro es sensible a la temperatura."},
+"TT-201B":{name:"Transmisor de temperatura",tipo:"Instrumento",variable:"Temperatura",funcion:"Transmisor (T)",loop:"-",montaje:"Campo",liveKey:"tempB",desc:"Mide la temperatura del reactor TK-201B."},
+"ORT-201A":{name:"Transmisor de potencial redox",tipo:"Instrumento",variable:"ORP",funcion:"Transmisor (T)",loop:"201A",montaje:"Campo",liveKey:"redoxA",desc:"Mide el potencial redox de la solucion, indicador clave de la disponibilidad de bromo activo para disolver oro."},
+"ORT-201B":{name:"Transmisor de potencial redox",tipo:"Instrumento",variable:"ORP",funcion:"Transmisor (T)",loop:"201B",montaje:"Campo",liveKey:"redoxB",desc:"Mide el potencial redox del reactor TK-201B."},
+"ORIC-201A":{name:"Controlador de potencial redox",tipo:"Instrumento",variable:"ORP",funcion:"Indicador + Controlador (IC)",loop:"201A",montaje:"Panel / DCS",liveKey:"brOpenA",desc:"Lazo critico en DCS: ajusta la dosificacion de bromuro (P-201A) para mantener el ORP en el punto optimo de lixiviacion."},
+"ORIC-201B":{name:"Controlador de potencial redox",tipo:"Instrumento",variable:"ORP",funcion:"Indicador + Controlador (IC)",loop:"201B",montaje:"Panel / DCS",liveKey:"brOpenB",desc:"Lazo critico en DCS del tren B, identico en funcion a ORIC-201A."},
+"P-201A":{name:"Bomba dosificadora de bromuro",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"201A",montaje:"Campo",liveKey:"brOpenA",desc:"Dosifica bromuro/Br2 al reactor segun la senal de ORIC-201A. Respaldo A/B para mantenimiento sin paro."},
+"P-201B":{name:"Bomba dosificadora de bromuro",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"201B",montaje:"Campo",liveKey:"brOpenB",desc:"Bomba en espera, identica a P-201A."},
+"AT-201A":{name:"Transmisor de pH",tipo:"Instrumento",variable:"pH",funcion:"Transmisor (T)",loop:"201A",montaje:"Campo",liveKey:"phA",desc:"Mide el pH del reactor TK-201A, condicion necesaria para mantener el bromo en su forma activa."},
+"AT-201B":{name:"Transmisor de pH",tipo:"Instrumento",variable:"pH",funcion:"Transmisor (T)",loop:"201B",montaje:"Campo",liveKey:"phB",desc:"Mide el pH del reactor TK-201B."},
+"AIC-201A":{name:"Controlador de pH",tipo:"Instrumento",variable:"pH",funcion:"Indicador + Controlador (IC)",loop:"201A",montaje:"Panel / DCS",liveKey:"naOpenA",desc:"Lazo critico en DCS: ajusta la dosificacion de NaOH (P-202A) para mantener el pH dentro del rango operativo."},
+"AIC-201B":{name:"Controlador de pH",tipo:"Instrumento",variable:"pH",funcion:"Indicador + Controlador (IC)",loop:"201B",montaje:"Panel / DCS",liveKey:"naOpenB",desc:"Lazo critico en DCS del tren B, identico en funcion a AIC-201A."},
+"P-202A":{name:"Bomba dosificadora de NaOH",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"201A",montaje:"Campo",liveKey:"naOpenA",desc:"Dosifica NaOH al reactor segun la senal de AIC-201A. Respaldo A/B para mantenimiento sin paro."},
+"P-202B":{name:"Bomba dosificadora de NaOH",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"201B",montaje:"Campo",liveKey:"naOpenB",desc:"Bomba en espera, identica a P-202A."},
+"V-201A":{name:"Valvula manual de bloqueo",tipo:"Equipo",variable:"-",funcion:"Selecciona el tren en servicio",loop:"-",montaje:"Campo",desc:"Se abre cuando el Tren A esta en servicio. Cierrala (selector arriba) antes de iniciar mantenimiento en TK-201A."},
+"V-201B":{name:"Valvula manual de bloqueo",tipo:"Equipo",variable:"-",funcion:"Selecciona el tren en servicio",loop:"-",montaje:"Campo",desc:"Se abre cuando el Tren B esta en servicio."},
+"GD-201":{name:"Detector de gas Br2",tipo:"Seguridad",variable:"Concentracion Br2",funcion:"Alarma de atmosfera toxica",loop:"-",montaje:"Campo",desc:"Detector fijo de bromo gaseoso en el area de lixiviacion. Activa alarma local y notificacion a sala de control."},
+"DUCHA-201":{name:"Ducha y lavaojos de seguridad",tipo:"Seguridad",variable:"-",funcion:"Respuesta a exposicion quimica",loop:"-",montaje:"Campo",desc:"Estacion de lavado de emergencia en el area de lixiviacion, exigida por la manipulacion de bromuro/bromo."},
+"F-301":{name:"Filtro de separacion",tipo:"Equipo",variable:"-",funcion:"Separa PLS de solidos lixiviados",loop:"-",montaje:"-",desc:"Separa la solucion enriquecida en oro (PLS) de los solidos lixiviados provenientes del tren en servicio."},
+"TK-601":{name:"Espesador de relaves",tipo:"Equipo",variable:"-",funcion:"Espesa solidos antes del deposito",loop:"-",montaje:"-",desc:"Recupera agua de proceso (reciclada a TK-201A/B) y envia solidos espesados a la Etapa 4."},
+"P-401A":{name:"Bomba dosificadora de alfa-ciclodextrina",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"401",montaje:"Campo",liveKey:"cdOpen",desc:"Dosifica la solucion de alfa-ciclodextrina hacia TK-401 segun FIC-401. Tren A en servicio."},
+"P-401B":{name:"Bomba dosificadora de alfa-ciclodextrina",tipo:"Equipo",variable:"Flujo",funcion:"Bomba dosificadora (elemento final)",loop:"401",montaje:"Campo",liveKey:"cdOpen",desc:"Bomba en espera, identica a P-401A. Permite mantenimiento sin detener la dosificacion."},
+"FT-401":{name:"Transmisor de flujo",tipo:"Instrumento",variable:"Flujo",funcion:"Transmisor (T)",loop:"401",montaje:"Campo",liveKey:"cdFlow",desc:"Mide el caudal de alfa-ciclodextrina dosificado hacia el tanque de precipitacion."},
+"FIC-401":{name:"Controlador de flujo",tipo:"Instrumento",variable:"Flujo",funcion:"Indicador + Controlador (IC)",loop:"401",montaje:"Panel / DCS",liveKey:"cdOpen",desc:"Lazo critico en DCS: regula la bomba activa (P-401A o P-401B) para dosificar alfa-ciclodextrina al ritmo correcto."},
+"FCV-401":{name:"Valvula de control de flujo",tipo:"Elemento final",variable:"Flujo",funcion:"Valvula de control (V)",loop:"401",montaje:"Linea de proceso",liveKey:"cdOpen",desc:"Modula el paso de alfa-ciclodextrina segun la senal de FIC-401."},
+"TK-401":{name:"Tanque de precipitacion",tipo:"Equipo",variable:"-",funcion:"Formacion del complejo Au-(alfa-CD)2",loop:"-",montaje:"-",desc:"Aqui ocurre la auto-ensambladura: dos moleculas de alfa-ciclodextrina envuelven al AuBr4- y precipitan como complejo solido."},
+"PSV-401":{name:"Valvula de alivio de presion",tipo:"Seguridad",variable:"Presion",funcion:"Proteccion mecanica contra sobrepresion",loop:"-",montaje:"Campo",desc:"Alivia presion del tanque de precipitacion TK-401 en caso de bloqueo de salida."},
+"F-402":{name:"Filtro de separacion",tipo:"Equipo",variable:"-",funcion:"Separa el complejo solido de la solucion esteril",loop:"-",montaje:"-",desc:"Separa el complejo Au-(alfa-CD)2 solido (a calcinacion) de la solucion esteril de bromuro (recirculada a Etapa 1)."},
+"HC-501":{name:"Horno de calcinacion",tipo:"Equipo",variable:"Temperatura",funcion:"Descompone el complejo y libera oro metalico",loop:"-",montaje:"-",desc:"Calcina el complejo Au-(alfa-CD)2 a alta temperatura: el carbohidrato se descompone y queda oro metalico solido."},
+"OX-601":{name:"Oxidador termico",tipo:"Equipo",variable:"Temperatura",funcion:"Combustion completa de organicos residuales",loop:"-",montaje:"-",desc:"Asegura la destruccion termica de cualquier vapor organico antes del enfriamiento y lavado de gases."},
+"EN-601":{name:"Enfriador / quench",tipo:"Equipo",variable:"Temperatura",funcion:"Reduce la temperatura antes del scrubber",loop:"-",montaje:"-",desc:"Enfria el gas de proceso a una temperatura adecuada para el lavado humedo en SC-601."},
+"SC-601":{name:"Scrubber humedo",tipo:"Equipo",variable:"pH",funcion:"Neutraliza Br2/HBr con NaOH",loop:"-",montaje:"-",desc:"Lava los gases con solucion de NaOH, capturando bromo/acido bromhidrico como NaBr disuelto."},
+"P-601":{name:"Bomba dosificadora de NaOH",tipo:"Equipo",variable:"Flujo",funcion:"Neutralizacion del scrubber",loop:"-",montaje:"Campo",desc:"Dosifica NaOH al scrubber SC-601 para mantener la capacidad de neutralizacion."},
+"FR-701":{name:"Filtro de relaves",tipo:"Equipo",variable:"-",funcion:"Deshidratacion de relaves (relave filtrado)",loop:"-",montaje:"-",desc:"Separa agua (reciclada) de la torta de relave, en linea con la practica de deposito filtrado en vez de presa convencional."},
+"AT-701":{name:"Analizador en linea",tipo:"Instrumento",variable:"pH / Conductividad / Br-",funcion:"Monitoreo continuo del agua reciclada",loop:"701",montaje:"Panel / DCS",liveKey:"waterQ",desc:"Verifica en linea la calidad del agua filtrada antes de reciclarla a los reactores de lixiviacion."},
+"LAB-701":{name:"Laboratorio de caracterizacion",tipo:"Soporte",variable:"-",funcion:"Pruebas ABA, NAG y TCLP del relave",loop:"-",montaje:"-",desc:"Caracteriza el potencial de generacion de acido y la movilidad de metales del relave antes de su deposito."},
+"DR-701":{name:"Deposito de relaves filtrado",tipo:"Instalacion",variable:"-",funcion:"Almacenamiento final del relave",loop:"-",montaje:"-",desc:"Deposito de relave filtrado (no presa de relleno hidraulico), reduciendo el riesgo de falla por licuefaccion."},
+"PZ-701":{name:"Piezometro",tipo:"Instrumento",variable:"Presion de poro",funcion:"Monitoreo geotecnico de estabilidad",loop:"701",montaje:"Campo",liveKey:"pzLevel",desc:"Mide presion de poro dentro del deposito; los reportes de estabilidad fisica son obligatorios en Peru con frecuencia semestral."}
+};
+
+let currentId = null;
+let activeTrain = "A";
+let activeCD = "A";
+
+const sim = {redoxA:420, redoxB:415, phA:9.2, phB:9.1, tempA:38, tempB:37, brOpenA:50, brOpenB:50, naOpenA:50, naOpenB:50, cdFlow:12, cdOpen:50, waterQ:7.1, pzLevel:62};
+const SET = {redox:430, ph:9.3, temp:38, cdFlow:12};
+
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+function liveText(id){
+  const key = DATA[id] && DATA[id].liveKey;
+  if(!key) return "-";
+  if(key==="redoxA") return Math.round(sim.redoxA)+" mV";
+  if(key==="redoxB") return Math.round(sim.redoxB)+" mV";
+  if(key==="tempA") return sim.tempA.toFixed(1)+" C";
+  if(key==="tempB") return sim.tempB.toFixed(1)+" C";
+  if(key==="brOpenA") return Math.round(sim.brOpenA)+"%";
+  if(key==="brOpenB") return Math.round(sim.brOpenB)+"%";
+  if(key==="naOpenA") return Math.round(sim.naOpenA)+"%";
+  if(key==="naOpenB") return Math.round(sim.naOpenB)+"%";
+  if(key==="cdFlow") return sim.cdFlow.toFixed(1)+" L/h";
+  if(key==="cdOpen") return Math.round(sim.cdOpen)+"%";
+  if(key==="waterQ") return "pH "+sim.waterQ.toFixed(1);
+  if(key==="pzLevel") return sim.pzLevel.toFixed(0)+" kPa";
+  return "-";
+}
+
+function stepSim(){
+  sim.redoxA += (SET.redox-sim.redoxA)*0.06 + (Math.random()-0.5)*6;
+  sim.redoxB += (SET.redox-sim.redoxB)*0.06 + (Math.random()-0.5)*6;
+  sim.phA += (SET.ph-sim.phA)*0.08 + (Math.random()-0.5)*0.08;
+  sim.phB += (SET.ph-sim.phB)*0.08 + (Math.random()-0.5)*0.08;
+  sim.tempA += (SET.temp-sim.tempA)*0.05 + (Math.random()-0.5)*0.4;
+  sim.tempB += (SET.temp-sim.tempB)*0.05 + (Math.random()-0.5)*0.4;
+  sim.brOpenA = clamp(50+(SET.redox-sim.redoxA)*0.9,5,95);
+  sim.brOpenB = clamp(50+(SET.redox-sim.redoxB)*0.9,5,95);
+  sim.naOpenA = clamp(50+(SET.ph-sim.phA)*12,5,95);
+  sim.naOpenB = clamp(50+(SET.ph-sim.phB)*12,5,95);
+  sim.cdFlow += (SET.cdFlow-sim.cdFlow)*0.1 + (Math.random()-0.5)*0.5;
+  sim.cdOpen = clamp(50+(SET.cdFlow-sim.cdFlow)*3,5,95);
+  sim.waterQ += (7.0-sim.waterQ)*0.1 + (Math.random()-0.5)*0.15;
+  sim.pzLevel += (60-sim.pzLevel)*0.08 + (Math.random()-0.5)*1.5;
+
+  if(currentId){
+    document.getElementById("panel-live").textContent = liveText(currentId);
+  }
+}
+setInterval(stepSim, 1500);
+
+function selectElem(id){
+  const d = DATA[id];
+  if(!d) return;
+  currentId = id;
+  document.getElementById("b-tipo").textContent = d.tipo;
+  document.getElementById("b-loop").textContent = d.loop !== "-" ? "Lazo "+d.loop : "Sin lazo";
+  document.getElementById("panel-tag").textContent = id;
+  document.getElementById("panel-name").textContent = d.name;
+  document.getElementById("panel-var").textContent = d.variable;
+  document.getElementById("panel-fun").textContent = d.funcion;
+  document.getElementById("panel-mount").textContent = d.montaje;
+  document.getElementById("panel-desc").textContent = d.desc;
+  document.getElementById("panel-live").textContent = liveText(id);
+
+  document.querySelectorAll(".lit").forEach(el=>el.classList.remove("lit"));
+  document.querySelectorAll(".selected").forEach(el=>el.classList.remove("selected"));
+  if(d.loop && d.loop !== "-"){
+    document.querySelectorAll('[data-loop="'+d.loop+'"]').forEach(el=>el.classList.add("lit"));
+  }
+  document.querySelectorAll('[data-id="'+id+'"]').forEach(el=>el.classList.add("selected"));
+}
+
+function setTrain(letter){
+  activeTrain = letter;
+  document.getElementById("trainA").classList.toggle("train-standby", letter!=="A");
+  document.getElementById("trainB").classList.toggle("train-standby", letter!=="B");
+  document.getElementById("btn-train-a").classList.toggle("is-active", letter==="A");
+  document.getElementById("btn-train-b").classList.toggle("is-active", letter==="B");
+}
+
+function setCD(letter){
+  activeCD = letter;
+  document.querySelector('[data-id="P-401A"]').classList.toggle("train-standby", letter!=="A");
+  document.querySelector('[data-id="P-401B"]').classList.toggle("train-standby", letter!=="B");
+  document.getElementById("btn-cd-a").classList.toggle("is-active", letter==="A");
+  document.getElementById("btn-cd-b").classList.toggle("is-active", letter==="B");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".elem").forEach(el => {
+    const id = el.getAttribute("data-id");
+    el.addEventListener("click", () => selectElem(id));
+    el.addEventListener("keydown", (e) => {
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); selectElem(id); }
+    });
+  });
+
+  document.querySelectorAll(".stage-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".stage-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      const target = btn.getAttribute("data-stage");
+      document.querySelectorAll(".stage").forEach(s=>s.classList.remove("visible"));
+      document.getElementById(target).classList.add("visible");
+    });
+  });
+
+  document.getElementById("btn-train-a").addEventListener("click", ()=>setTrain("A"));
+  document.getElementById("btn-train-b").addEventListener("click", ()=>setTrain("B"));
+  document.getElementById("btn-cd-a").addEventListener("click", ()=>setCD("A"));
+  document.getElementById("btn-cd-b").addEventListener("click", ()=>setCD("B"));
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.live-dot').forEach(el => el.style.display = 'none');
+  }
+});
+
+</script>
+
+</body>
+</html>
