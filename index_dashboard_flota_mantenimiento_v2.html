@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoreo de Flota — Construcción Civil</title>
+<meta name="description" content="Dashboard de monitoreo de flota, personal y mantenimiento predictivo para construcción civil.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1322;
+    --panel:#101b2d;
+    --line:#223349;
+    --ink:#e7eef7;
+    --ink-dim:#7e93ac;
+    --green:#2fbf6e;
+    --yellow:#e8b339;
+    --red:#e2493d;
+    --blue:#49c9e8;
+    --radius:10px;
+    --font-sans:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono:'JetBrains Mono','Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1320px;margin:0 auto;padding:28px 24px 64px;}
+
+  header.topbar{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    flex-wrap:wrap;gap:12px;margin-bottom:22px;
+    border-bottom:1px solid var(--line);padding-bottom:18px;
+  }
+  .brand h1{
+    font-family:var(--font-mono);font-size:24px;letter-spacing:0.5px;
+    margin:0;font-weight:700;
+  }
+  .brand .subtitle{color:var(--ink-dim);margin:4px 0 0;font-size:13.5px;}
+  .live-indicator{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:13px;color:var(--green);}
+  .live-indicator .dot{
+    width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 0 rgba(47,191,110,0.6);animation:pulse 1.8s infinite;
+  }
+  .live-indicator .sep{color:var(--ink-dim);}
+  #last-updated{color:var(--ink-dim);}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(47,191,110,0.55);}
+    70%{box-shadow:0 0 0 7px rgba(47,191,110,0);}
+    100%{box-shadow:0 0 0 0 rgba(47,191,110,0);}
+  }
+
+  nav.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:24px;flex-wrap:wrap;}
+  .tab-btn{
+    background:transparent;border:none;color:var(--ink-dim);
+    font-family:var(--font-sans);font-weight:600;font-size:14px;
+    padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  .tab-btn:hover{color:var(--ink);}
+  .tab-btn.active{color:var(--ink);border-bottom-color:var(--blue);}
+  .tab-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .section-title{
+    font-size:13px;color:var(--ink-dim);text-transform:uppercase;
+    letter-spacing:0.5px;margin:26px 0 12px;font-weight:600;
+  }
+  .section-title:first-child{margin-top:0;}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
+  .kpi-card{
+    background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--blue);
+    border-radius:var(--radius);padding:14px 16px;
+  }
+  .kpi-card.accent-green{border-left-color:var(--green);}
+  .kpi-card.accent-yellow{border-left-color:var(--yellow);}
+  .kpi-card.accent-red{border-left-color:var(--red);}
+  .kpi-card .kpi-label{color:var(--ink-dim);font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;}
+  .kpi-card .kpi-value{font-family:var(--font-mono);font-size:27px;font-weight:700;line-height:1;}
+  .kpi-card .kpi-note{font-size:12px;color:var(--ink-dim);margin-top:5px;}
+
+  .filter-bar{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:18px;}
+  .filter-group{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .filter-group .fg-label{color:var(--ink-dim);font-size:11px;text-transform:uppercase;letter-spacing:.3px;margin-right:2px;}
+  .chip-btn{
+    background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
+    font-family:var(--font-sans);font-size:12.5px;padding:6px 13px;border-radius:999px;
+    cursor:pointer;transition:color .15s, border-color .15s, background .15s;
+  }
+  .chip-btn:hover{color:var(--ink);border-color:var(--blue);}
+  .chip-btn.active{background:var(--blue);color:#06202a;border-color:var(--blue);font-weight:600;}
+  .chip-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+  .vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px;}
+  .vehicle-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;cursor:pointer;transition:border-color .15s, transform .15s;
+    text-align:left;font:inherit;color:inherit;width:100%;display:block;
+  }
+  .vehicle-card:hover{border-color:var(--blue);transform:translateY(-2px);}
+  .vehicle-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .vehicle-card.estado-ok{border-left:4px solid var(--green);}
+  .vehicle-card.estado-alerta{border-left:4px solid var(--yellow);}
+  .vehicle-card.estado-reabasteciendo{border-left:4px solid var(--blue);}
+  .vehicle-card.estado-taller{border-left:4px solid var(--red);}
+  .vc-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;}
+  .vc-tag{font-family:var(--font-mono);font-weight:700;font-size:15px;}
+  .vc-type{color:var(--ink-dim);font-size:12.5px;margin-bottom:12px;}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;font-family:var(--font-sans);white-space:nowrap;letter-spacing:.2px;}
+  .pill-ok{background:var(--green);color:#06210f;}
+  .pill-alerta{background:var(--yellow);color:#2a1d02;}
+  .pill-grifo{background:var(--blue);color:#06202a;}
+  .pill-taller{background:var(--red);color:#2a0a06;}
+  .vc-meta{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--ink-dim);font-family:var(--font-mono);margin-top:5px;}
+  .vc-meta b{color:var(--ink);font-weight:600;}
+  .empty-note{color:var(--ink-dim);font-size:13px;padding:20px 4px;}
+
+  .table-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;}
+  .scroll-hint{display:none;color:var(--ink-dim);font-size:11.5px;margin-bottom:8px;}
+  .role-note{color:var(--ink-dim);font-size:12.5px;margin:-4px 0 14px;max-width:640px;}
+  table.personal-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .personal-table th{
+    text-align:left;color:var(--ink-dim);font-size:11px;text-transform:uppercase;
+    letter-spacing:.3px;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  .personal-table td{padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  .personal-table tr.op-row{cursor:pointer;}
+  .personal-table tr.op-row:hover{background:rgba(73,201,232,0.06);}
+  .personal-table tr.op-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;}
+  .personal-table tbody tr:last-child td{border-bottom:none;}
+  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;}
+  .expand-hint{color:var(--ink-dim);font-size:11px;margin-left:6px;}
+  .tools-detail-row td{background:rgba(34,51,73,0.35);padding:0;white-space:normal;}
+  .tools-detail{padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;}
+  .tools-detail .td-title{grid-column:1/-1;color:var(--ink-dim);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px;}
+  .tool-card{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+  .tool-card .tn{font-family:var(--font-mono);font-weight:600;font-size:13px;}
+  .tool-card .tc{font-size:11px;color:var(--ink-dim);margin:2px 0 8px;}
+  .tool-card .tc2{font-size:11px;color:var(--ink-dim);margin-top:3px;}
+
+  .donut-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:8px;}
+  .donut-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;text-align:center;}
+  .donut-wrap{position:relative;width:92px;height:92px;margin:0 auto 10px;}
+  .donut-wrap svg{display:block;}
+  .donut-wrap .donut-score{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .donut-score .num{font-family:var(--font-mono);font-weight:700;font-size:18px;}
+  .donut-score .lbl{font-size:9.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.3px;}
+  .donut-card .vname{font-family:var(--font-mono);font-weight:700;margin-top:2px;font-size:13.5px;}
+  .donut-card .vcomp{font-size:11px;color:var(--ink-dim);margin-top:2px;}
+  .donut-card .vzona{font-size:9.5px;color:var(--ink-dim);opacity:.75;margin-top:1px;}
+
+  .alerts-list{display:flex;flex-direction:column;gap:10px;}
+  .alert-item{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--ink-dim);
+    border-radius:var(--radius);padding:13px 16px;flex-wrap:wrap;
+  }
+  .alert-item.sev-critico{border-left-color:var(--red);}
+  .alert-item.sev-vigilar{border-left-color:var(--yellow);}
+  .alert-item .a-main b{font-family:var(--font-mono);}
+  .alert-item .a-desc{font-size:12px;color:var(--ink-dim);margin-top:3px;}
+  .alert-item .a-meta{font-size:11.5px;color:var(--ink-dim);margin-top:6px;}
+  .alert-item .a-eta{font-weight:700;font-size:13px;white-space:nowrap;}
+  .alert-item.sev-critico .a-eta{color:var(--red);}
+  .alert-item.sev-vigilar .a-eta{color:var(--yellow);}
+
+  .trend-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-top:8px;}
+  .trend-panel h3{margin:0 0 3px;font-size:14px;font-family:var(--font-mono);}
+  .trend-panel .trend-sub{color:var(--ink-dim);font-size:12px;margin-bottom:4px;}
+  .trend-panel .trend-desc{color:var(--ink-dim);font-size:12px;margin-bottom:12px;}
+  .trend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;}
+  .trend-grid .trend-panel{margin-top:0;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(5,9,16,0.72);
+    display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  .modal-overlay[hidden]{display:none;}
+  .modal{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:26px;position:relative;
+  }
+  .modal-close{
+    position:absolute;top:14px;right:14px;background:transparent;border:1px solid var(--line);
+    color:var(--ink-dim);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:15px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .modal-close:hover{color:var(--ink);border-color:var(--blue);}
+  .modal-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .modal h2{font-family:var(--font-mono);}
+  .modal h3.m-sub{margin:20px 0 8px;font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.4px;}
+  .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;font-family:var(--font-mono);font-size:13px;margin-top:16px;}
+  .modal-grid .vc-meta{font-size:12.5px;}
+
+  @media (max-width:640px){
+    .app{padding:18px 14px 48px;}
+    .brand h1{font-size:19px;}
+    .modal-grid{grid-template-columns:1fr;}
+    .vehicle-grid{grid-template-columns:1fr 1fr;}
+    .scroll-hint{display:block;}
+  }
+  @media (max-width:420px){
+    .vehicle-grid{grid-template-columns:1fr;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .live-indicator .dot{animation:none;}
+    .vehicle-card{transition:none;}
+    .vehicle-card:hover{transform:none;}
+    .chip-btn{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>MONITOREO DE FLOTA</h1>
+      <p class="subtitle">Construcción civil · mantenimiento y gestión de personal</p>
+    </div>
+    <div class="live-indicator">
+      <span class="dot" aria-hidden="true"></span>
+      <span>EN VIVO</span>
+      <span class="sep">·</span>
+      <span id="last-updated">actualizado hace 0 s</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones del dashboard">
+    <button class="tab-btn active" data-tab="flota" role="tab" aria-selected="true">Vista de Flota</button>
+    <button class="tab-btn" data-tab="personal" role="tab" aria-selected="false">Personal</button>
+    <button class="tab-btn" data-tab="mantenimiento" role="tab" aria-selected="false">Mantenimiento Predictivo</button>
+  </nav>
+
+  <main>
+    <section id="view-flota" class="view active" role="tabpanel">
+      <div id="flota-kpis" class="kpi-row"></div>
+      <div id="flota-filters" class="filter-bar"></div>
+      <div id="flota-grid" class="vehicle-grid"></div>
+    </section>
+
+    <section id="view-personal" class="view" role="tabpanel" hidden>
+      <h2 class="section-title">Operadores / Conductores</h2>
+      <p class="role-note">Personal que conduce y opera las unidades de la flota.</p>
+      <div id="operadores-kpis" class="kpi-row"></div>
+      <p class="scroll-hint">← Desliza para ver todas las columnas →</p>
+      <div id="operadores-table-wrap" class="table-wrap"></div>
+
+      <h2 class="section-title">Personal de Mantenimiento</h2>
+      <p class="role-note">Técnicos y mecánicos responsables de instrumentos de calibración y equipos de izaje por cuadrilla/zona — no operan unidades de la flota.</p>
+      <div id="tecnicos-kpis" class="kpi-row"></div>
+      <p class="scroll-hint">← Desliza para ver todas las columnas →</p>
+      <div id="tecnicos-table-wrap" class="table-wrap"></div>
+    </section>
+
+    <section id="view-mantenimiento" class="view" role="tabpanel" hidden>
+      <div id="mant-kpis" class="kpi-row"></div>
+      <h2 class="section-title">Salud de componentes críticos</h2>
+      <div id="mant-donuts" class="donut-row"></div>
+      <h2 class="section-title">Alertas de falla predicha</h2>
+      <div id="mant-alerts" class="alerts-list"></div>
+      <h2 class="section-title">Tendencia de los casos críticos</h2>
+      <div id="mant-trend-wrap" class="trend-grid"></div>
+    </section>
+  </main>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" id="modal-close" aria-label="Cerrar detalle">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ===================== Helpers =====================
+  const $ = (sel,ctx=document)=>ctx.querySelector(sel);
+  const $$ = (sel,ctx=document)=>Array.from(ctx.querySelectorAll(sel));
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand = (a,b)=>Math.random()*(b-a)+a;
+  const randInt = (a,b)=>Math.floor(rand(a,b+1));
+  const fmt1 = (n)=>n.toFixed(1);
+
+  // ===================== Reference data =====================
+  const ZONAS = ['Zona Norte','Zona Sur','Obra Central'];
+  const ZONA_ABBR = {'Zona Norte':'Z. Norte','Zona Sur':'Z. Sur','Obra Central':'Obra Central'};
+  const TIPOS = [
+    {code:'EXC', label:'Excavadora', n:8},
+    {code:'VOL', label:'Volquete', n:10},
+    {code:'CRG', label:'Cargador frontal', n:6}
+  ];
+  const COMPONENTES = [
+    {key:'hidraulico', label:'Sistema hidráulico/neumático'},
+    {key:'motor', label:'Motor'},
+    {key:'frenos', label:'Frenos'},
+    {key:'transmision', label:'Transmisión'},
+    {key:'electrico', label:'Sistema eléctrico'}
+  ];
+  const NOMBRES_OPERADORES = [
+    'J. Ramírez','M. Quispe','P. Fernández','R. Choque','D. Huamán','S. Mamani','F. Rojas','C. Torres',
+    'A. Vargas','L. Flores','E. Gonzáles','N. Condori','V. Paredes','K. Salazar','H. Cárdenas','B. Herrera',
+    'O. Vega','I. Cusi','G. Apaza','T. Yupanqui','W. Ríos','Y. Castro','Q. Medina','Z. Aranda','U. Soto'
+  ];
+  const NOMBRES_TECNICOS = [
+    'R. Paucar','M. Sullca','J. Quenta','A. Mejía','L. Espinoza','D. Bravo','C. Núñez','F. Chumpitaz',
+    'E. Palacios','S. Ñahui','V. Cachay','H. Tello'
+  ];
+  const TECNICO_ROLES = ['Técnico de mantenimiento','Mecánico de flota'];
+  // Pool de choferes de reemplazo: 2 por zona, completamente distinto de operadores y técnicos
+  // (sin nombres compartidos entre poblaciones, para evitar duplicidad de identidad).
+  const NOMBRES_REEMPLAZO = [
+    'E. Maldonado','R. Soncco','A. Ttito','M. Huayllani','C. Ancco','J. Quispealaya'
+  ];
+
+  const SIGNAL_TEXT = {
+    hidraulico:{ critico:(p)=>`Vibración +${p}% sobre baseline en sistema hidráulico/neumático`, vigilar:'Presión hidráulica fuera de rango / fuga menor detectada', sano:'Sin anomalías detectadas' },
+    motor:{ critico:'Sobrecalentamiento sostenido del motor', vigilar:'Temperatura de motor ligeramente elevada', sano:'Parámetros de motor dentro de rango' },
+    frenos:{ critico:'Pérdida de presión en circuito de frenos', vigilar:'Desgaste de pastillas/discos por encima de umbral', sano:'Sistema de frenos sin novedad' },
+    transmision:{ critico:'Falla inminente en convertidor de torque', vigilar:'Temperatura de aceite de transmisión elevada', sano:'Transmisión sin novedad' },
+    electrico:{ critico:'Falla intermitente en sistema eléctrico', vigilar:'Voltaje de batería/alternador fuera de rango', sano:'Sistema eléctrico sin novedad' }
+  };
+  const ACCION_TEXT = {
+    critico:(d)=>`Falla estimada en ${d} días`,
+    vigilar:(d)=>`Revisar en próxima parada (${d} días)`
+  };
+
+  function severityOf(score){ return score<50 ? 'critico' : (score<75 ? 'vigilar' : 'sano'); }
+
+  // ===================== Vehicles =====================
+  let vehicles = [];
+
+  function buildVehicles(){
+    vehicles = [];
+    let zoneCursor = 0;
+    TIPOS.forEach(tipo=>{
+      for(let i=1;i<=tipo.n;i++){
+        const zona = ZONAS[zoneCursor % ZONAS.length]; zoneCursor++;
+        const tag = `${tipo.code}-${String(i).padStart(2,'0')}`;
+        const componentes = {};
+        COMPONENTES.forEach(c=>{
+          const base = rand(78,98);
+          componentes[c.key] = { score:base, trend:Array.from({length:14},()=>clamp(base+rand(-2.5,2.5),70,99)) };
+        });
+        vehicles.push({
+          id:tag, tag, tipoCode:tipo.code, tipoLabel:tipo.label, zona,
+          km: rand(0.5,7).toFixed(1),
+          combustible: randInt(15,98),
+          horometro: randInt(800,15400),
+          tempMotor: rand(76,94),
+          presionAceite: rand(3.2,5.4),
+          carga: tipo.code==='VOL' ? randInt(0,12) : null,
+          cargaMax: tipo.code==='VOL' ? 15 : null,
+          componentes,
+          historial: [],
+          operador: null,
+          refueling: false,
+          estado: 'ok'
+        });
+      }
+    });
+
+    // Dos alertas críticas estables en el panel de mantenimiento predictivo
+    // (foco principal: hidráulico/neumático y motor), más 2 casos en vigilancia para variedad.
+    forceScore(findByOffset('VOL',2), 'hidraulico', 32, 38);
+    forceScore(findByOffset('EXC',1), 'motor', 41, null);
+    forceScore(findByOffset('CRG',0), 'transmision', 58, null);
+    forceScore(findByOffset('VOL',5), 'frenos', 63, null);
+
+    // Caso de demostración: una unidad arranca con combustible muy bajo para que el
+    // ciclo de abastecimiento (combustible < 5%) sea visible apenas comienza la actualización en vivo.
+    const grifoDemo = findByOffset('CRG',3);
+    if(grifoDemo) grifoDemo.combustible = 4;
+
+    vehicles.forEach(recomputeEstado);
+    assignOperadores();
+  }
+
+  function findByOffset(tipoCode, offset){
+    const first = vehicles.findIndex(v=>v.tipoCode===tipoCode);
+    return vehicles[first+offset];
+  }
+
+  function forceScore(v, key, score, pct){
+    if(!v) return;
+    const comp = v.componentes[key];
+    comp.score = score;
+    if(pct!=null) comp._pct = pct;
+    comp.trend = Array.from({length:14},(_,i)=> clamp(92 - i*((92-score)/13) + rand(-1.2,1.2), score-5, 96));
+    comp.trend[13] = score;
+  }
+
+  function recomputeEstado(v){
+    let worst = 'sano';
+    COMPONENTES.forEach(c=>{
+      const sev = severityOf(v.componentes[c.key].score);
+      if(sev==='critico') worst='critico';
+      else if(sev==='vigilar' && worst!=='critico') worst='vigilar';
+    });
+    v._worstComp = worst;
+    if(worst==='critico') v.estado = 'taller';
+    else if(v.refueling) v.estado = 'reabasteciendo';
+    else if(worst==='vigilar' || v.combustible<25) v.estado = 'alerta';
+    else v.estado = 'ok';
+  }
+
+  // ===================== Personal =====================
+  let operadores = [];
+
+  function assignOperadores(){
+    operadores = [];
+    let ni = 0;
+    const zoneCount = {};
+    vehicles.forEach(v=>{
+      if(v.estado==='taller'){ v.operador = null; return; }
+      const nombre = NOMBRES_OPERADORES[ni % NOMBRES_OPERADORES.length]; ni++;
+      const horas = randInt(32,54);
+      const zi = ZONAS.indexOf(v.zona);
+      const cnt = zoneCount[v.zona] || 0;
+      const reemplazo = NOMBRES_REEMPLAZO[zi*2 + (cnt%2)];
+      zoneCount[v.zona] = cnt+1;
+      const relevoActivo = horas>48;
+      const turno = relevoActivo ? 'Relevo activo' : (horas>45 ? 'En turno (OT)' : 'En turno');
+      const op = { nombre, unidad:v.tag, zona:v.zona, horas, turno, reemplazo, relevoActivo };
+      v.operador = op;
+      operadores.push(op);
+    });
+    for(let i=0;i<2;i++){
+      operadores.push({ nombre:NOMBRES_OPERADORES[ni % NOMBRES_OPERADORES.length], unidad:null, zona:ZONAS[i % ZONAS.length], horas:null, turno:'Disponible', reemplazo:null, relevoActivo:false });
+      ni++;
+    }
+    vehicles.filter(v=>v.estado==='taller').forEach(v=>{
+      operadores.push({ nombre:null, unidad:v.tag, zona:v.zona, horas:null, turno:'Disponible (taller)', reemplazo:null, relevoActivo:false });
+    });
+  }
+
+  // ===================== Personal de mantenimiento (técnicos/mecánicos) =====================
+  // Equipo distinto al de operadores: no conduce unidades, da servicio a los instrumentos
+  // de calibración y equipos de izaje de su cuadrilla/zona.
+  let tecnicos = [];
+
+  function buildTecnicos(){
+    tecnicos = [];
+    let ni = 0;
+    ZONAS.forEach(zona=>{
+      TECNICO_ROLES.forEach(rol=>{
+        const nombre = NOMBRES_TECNICOS[ni % NOMBRES_TECNICOS.length]; ni++;
+        const turno = Math.random()<0.15 ? 'Disponible' : 'En turno';
+        tecnicos.push({ nombre, rol, zona, turno });
+      });
+    });
+  }
+
+  // ===================== Herramientas por cuadrilla/zona =====================
+  let cuadrillas = {};
+
+  function statusFromDays(d){ return d<=5 ? 'vencido' : (d<=15 ? 'porvencer' : 'ok'); }
+
+  function toolFecha(tag, nombre, categoria, periodicidad, maxDias){
+    const dias = randInt(-8, maxDias);
+    return { tag, nombre, categoria, periodicidad, dias, status:statusFromDays(dias), kind:'fecha' };
+  }
+
+  function toolCiclos(tag, nombre){
+    const limite = 5000;
+    const usados = randInt(500,5200);
+    const pct = Math.round((usados/limite)*100);
+    const dias = randInt(-5,300);
+    const statusFecha = statusFromDays(dias);
+    const statusCiclos = pct>=100 ? 'vencido' : (pct>=80 ? 'porvencer' : 'ok');
+    const order = {ok:0, porvencer:1, vencido:2};
+    const status = order[statusCiclos] >= order[statusFecha] ? statusCiclos : statusFecha;
+    return { tag, nombre, categoria:'Instrumento de medición', periodicidad:'Calibración cada 12 meses o 5,000 ciclos', dias, usados, limite, pct, status, kind:'ciclos' };
+  }
+
+  function buildCuadrillas(){
+    cuadrillas = {};
+    ZONAS.forEach(zona=>{
+      const suf = zona==='Zona Norte' ? 'N' : (zona==='Zona Sur' ? 'S' : 'C');
+      cuadrillas[zona] = [
+        toolFecha(`MM-${suf}01`, 'Multímetro', 'Instrumento de medición', 'Calibración cada 12 meses', 220),
+        toolFecha(`MN-${suf}01`, 'Manómetro', 'Instrumento de medición', 'Calibración cada 6 meses', 110),
+        toolFecha(`TI-${suf}01`, 'Termómetro infrarrojo', 'Instrumento de medición', 'Calibración cada 12 meses', 220),
+        toolCiclos(`LD-${suf}01`, 'Llave dinamométrica'),
+        toolFecha(`ESL-${suf}01`, 'Eslinga textil', 'Equipo de izaje', 'Inspección formal cada 3 meses', 55),
+        toolFecha(`GRI-${suf}01`, 'Grillete de izaje', 'Equipo de izaje', 'Inspección + certificación anual', 220)
+      ];
+    });
+  }
+
+  function toolStatusMeta(t){
+    const color = t.status==='ok' ? 'var(--green)' : (t.status==='porvencer' ? 'var(--yellow)' : 'var(--red)');
+    const label = t.status==='ok' ? 'OK' : (t.status==='porvencer' ? 'Por vencer' : 'Vencido');
+    let meta;
+    if(t.kind==='ciclos'){
+      meta = `${t.usados}/${t.limite} ciclos (${t.pct}%)`;
+    } else {
+      meta = t.dias>=0 ? `vence en ${t.dias} d` : `vencido hace ${Math.abs(t.dias)} d`;
+    }
+    return {color,label,meta};
+  }
+
+  // ===================== SVG builders =====================
+  function donutSVG(score, color, sizePx=92, strokeWidth=9){
+    const radius = (sizePx - strokeWidth)/2;
+    const circumference = 2*Math.PI*radius;
+    const offset = circumference - (clamp(score,0,100)/100)*circumference;
+    const c = sizePx/2;
+    return `<svg viewBox="0 0 ${sizePx} ${sizePx}" width="${sizePx}" height="${sizePx}" role="img" aria-label="Salud ${Math.round(score)}%">
+      <circle cx="${c}" cy="${c}" r="${radius}" fill="none" stroke="var(--line)" stroke-width="${strokeWidth}"/>
+      <circle cx="${c}" cy="${c}" r="${radius}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 ${c} ${c})"/>
+    </svg>`;
+  }
+
+  function trendSVG(points, threshold, width=640, height=210){
+    const pad = {top:18,right:14,bottom:26,left:14};
+    const innerW = width - pad.left - pad.right;
+    const innerH = height - pad.top - pad.bottom;
+    const n = points.length;
+    const xStep = innerW/(n-1);
+    const yScale = v => pad.top + innerH - (clamp(v,0,100)/100)*innerH;
+    const xScale = i => pad.left + i*xStep;
+    const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${xScale(i).toFixed(1)} ${yScale(p).toFixed(1)}`).join(' ');
+    const areaD = `${pathD} L ${xScale(n-1).toFixed(1)} ${(pad.top+innerH).toFixed(1)} L ${xScale(0).toFixed(1)} ${(pad.top+innerH).toFixed(1)} Z`;
+    const thresholdY = yScale(threshold).toFixed(1);
+    const last = points[n-1];
+    const color = last<50 ? 'var(--red)' : (last<75 ? 'var(--yellow)' : 'var(--green)');
+    return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Tendencia de salud en los últimos 14 días">
+      <line x1="${pad.left}" y1="${thresholdY}" x2="${width-pad.right}" y2="${thresholdY}" stroke="var(--red)" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="${width-pad.right}" y="${Number(thresholdY)-7}" text-anchor="end" fill="var(--red)" font-size="11" font-family="JetBrains Mono, monospace">umbral crítico (${threshold}%)</text>
+      <path d="${areaD}" fill="${color}" opacity="0.14" stroke="none"/>
+      <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2.5"/>
+      <text x="${pad.left}" y="${height-6}" fill="var(--ink-dim)" font-size="11" font-family="IBM Plex Sans, sans-serif">Día -14</text>
+      <text x="${width-pad.right}" y="${height-6}" text-anchor="end" fill="var(--ink-dim)" font-size="11" font-family="IBM Plex Sans, sans-serif">Hoy</text>
+    </svg>`;
+  }
+
+  function sparkSVG(values, width=300, height=60){
+    if(values.length<2) return '<p style="color:var(--ink-dim);font-size:12px;">Aún sin histórico en esta sesión.</p>';
+    const max = Math.max(...values), min = Math.min(...values);
+    const range = (max-min) || 1;
+    const stepX = width/(values.length-1);
+    const pts = values.map((v,i)=>`${(i*stepX).toFixed(1)},${(height-2-((v-min)/range)*(height-4)).toFixed(1)}`).join(' ');
+    return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Histórico reciente de combustible">
+      <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2"/>
+    </svg>`;
+  }
+
+  // ===================== State: filters =====================
+  let filtros = { zona:'Todas', tipo:'Todos', estado:'Todos' };
+
+  function applyFiltros(list){
+    return list.filter(v=>{
+      if(filtros.zona!=='Todas' && v.zona!==filtros.zona) return false;
+      if(filtros.tipo!=='Todos' && v.tipoLabel!==filtros.tipo) return false;
+      if(filtros.estado!=='Todos'){
+        const map = {OK:'ok', Alerta:'alerta', Abasteciendo:'reabasteciendo', Taller:'taller'};
+        if(v.estado!==map[filtros.estado]) return false;
+      }
+      return true;
+    });
+  }
+
+  // ===================== Render: Flota =====================
+  function renderFlotaKPIs(){
+    const total = vehicles.length;
+    const ok = vehicles.filter(v=>v.estado==='ok').length;
+    const alerta = vehicles.filter(v=>v.estado==='alerta').length;
+    const grifo = vehicles.filter(v=>v.estado==='reabasteciendo').length;
+    const taller = vehicles.filter(v=>v.estado==='taller').length;
+    $('#flota-kpis').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Unidades totales</div><div class="kpi-value">${total}</div></div>
+      <div class="kpi-card accent-green"><div class="kpi-label">En ruta · OK</div><div class="kpi-value">${ok}</div></div>
+      <div class="kpi-card accent-yellow"><div class="kpi-label">En ruta · Alerta</div><div class="kpi-value">${alerta}</div><div class="kpi-note">revisar</div></div>
+      <div class="kpi-card"><div class="kpi-label">Abasteciendo</div><div class="kpi-value">${grifo}</div></div>
+      <div class="kpi-card accent-red"><div class="kpi-label">En taller</div><div class="kpi-value">${taller}</div></div>
+    `;
+  }
+
+  function renderFiltros(){
+    const zonas = ['Todas', ...ZONAS];
+    const tipos = ['Todos', ...TIPOS.map(t=>t.label)];
+    const estados = ['Todos','OK','Alerta','Abasteciendo','Taller'];
+    const grp = (label,key,opts) => `<div class="filter-group"><span class="fg-label">${label}</span>${opts.map(o=>
+      `<button class="chip-btn ${filtros[key]===o?'active':''}" data-fkey="${key}" data-fval="${o}">${o}</button>`).join('')}</div>`;
+    $('#flota-filters').innerHTML = grp('Zona','zona',zonas) + grp('Tipo','tipo',tipos) + grp('Estado','estado',estados);
+  }
+
+  function renderFlotaGrid(){
+    const list = applyFiltros(vehicles);
+    $('#flota-grid').innerHTML = list.map(v=>{
+      let pillClass, pillText;
+      if(v.estado==='ok'){ pillClass='pill-ok'; pillText='EN RUTA: OK'; }
+      else if(v.estado==='alerta'){ pillClass='pill-alerta'; pillText='ALERTA'; }
+      else if(v.estado==='reabasteciendo'){ pillClass='pill-grifo'; pillText='ABASTECIENDO'; }
+      else { pillClass='pill-taller'; pillText='EN TALLER'; }
+      let locLabel, combLabel;
+      if(v.estado==='taller'){ locLabel='Taller central'; combLabel='Sin operación'; }
+      else if(v.estado==='reabasteciendo'){ locLabel=`Grifo — ${ZONA_ABBR[v.zona]}`; combLabel=`Comb. ${Math.round(v.combustible)}%`; }
+      else { locLabel=`${ZONA_ABBR[v.zona]} Km ${v.km}`; combLabel=`Comb. ${Math.round(v.combustible)}%`; }
+      const opLabel = v.operador ? v.operador.nombre : '-';
+      return `<button type="button" class="vehicle-card estado-${v.estado}" data-id="${v.id}" aria-haspopup="dialog">
+        <div class="vc-head"><span class="vc-tag">${v.tag}</span><span class="pill ${pillClass}">${pillText}</span></div>
+        <div class="vc-type">${v.tipoLabel}</div>
+        <div class="vc-meta"><span>Operador</span><b>${opLabel}</b></div>
+        <div class="vc-meta"><span>${locLabel}</span><span>${combLabel}</span></div>
+      </button>`;
+    }).join('') || `<p class="empty-note">No hay unidades que coincidan con los filtros seleccionados.</p>`;
+  }
+
+  // ===================== Render: Operadores / Conductores =====================
+  function renderOperadoresKPIs(){
+    const activos = operadores.filter(o=>o.turno && (o.turno==='En turno' || o.turno==='En turno (OT)' || o.turno==='Relevo activo')).length;
+    const disponibles = operadores.filter(o=>o.turno && o.turno.startsWith('Disponible')).length;
+    const enRelevo = operadores.filter(o=>o.relevoActivo).length;
+    const horasExtra = operadores.filter(o=>o.horas!=null && o.horas>45).reduce((s,o)=>s+(o.horas-45),0);
+    $('#operadores-kpis').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Operadores activos</div><div class="kpi-value">${activos}</div></div>
+      <div class="kpi-card accent-green"><div class="kpi-label">Disponibles</div><div class="kpi-value">${disponibles}</div></div>
+      <div class="kpi-card accent-red"><div class="kpi-label">En relevo (+48h)</div><div class="kpi-value">${enRelevo}</div></div>
+      <div class="kpi-card accent-yellow"><div class="kpi-label">Horas extra (semana)</div><div class="kpi-value">${horasExtra} h</div></div>
+    `;
+  }
+
+  function toolsDetailHTML(zona){
+    const tools = cuadrillas[zona] || [];
+    return `<div class="tools-detail">
+      <div class="td-title">Herramientas de la cuadrilla — ${zona}</div>
+      ${tools.map(t=>{
+        const {color,label,meta} = toolStatusMeta(t);
+        return `<div class="tool-card">
+          <div class="tn">${t.tag}</div>
+          <div class="tc">${t.nombre} · ${t.categoria}</div>
+          <div class="vc-meta"><span style="color:${color};font-weight:600">${label}</span><span>${meta}</span></div>
+          <div class="tc2">${t.periodicidad}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function renderOperadoresTable(){
+    const rows = operadores.map(o=>{
+      const horasTxt = o.horas==null ? '-' : `${o.horas} h`;
+      let reemplazoCell = '-';
+      if(o.reemplazo){
+        reemplazoCell = o.relevoActivo
+          ? `${o.reemplazo} <span style="color:var(--red);font-weight:600">● en relevo (+48h)</span>`
+          : `${o.reemplazo} <span style="color:var(--ink-dim)">(en espera)</span>`;
+      }
+      let dotColor = 'var(--green)';
+      if(o.turno.startsWith('Disponible')) dotColor = 'var(--ink-dim)';
+      else if(o.turno==='Relevo activo') dotColor = 'var(--red)';
+      else if(o.turno==='En turno (OT)') dotColor = 'var(--yellow)';
+      return `<tr>
+          <td>${o.nombre || '-'}</td>
+          <td>${o.unidad || '-'}</td>
+          <td>${reemplazoCell}</td>
+          <td>${horasTxt}</td>
+          <td><span class="status-dot" style="background:${dotColor}"></span>${o.turno}</td>
+        </tr>`;
+    }).join('');
+    $('#operadores-table-wrap').innerHTML = `<table class="personal-table">
+      <thead><tr><th>Operador</th><th>Unidad asignada</th><th>Reemplazo</th><th>Horas (semana)</th><th>Estado</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  function toggleToolsRow(rowId){
+    const row = $('#'+rowId);
+    if(!row) return;
+    const isHidden = row.hasAttribute('hidden');
+    $$('.tools-detail-row').forEach(r=>r.setAttribute('hidden',''));
+    if(isHidden) row.removeAttribute('hidden');
+  }
+
+  // ===================== Render: Personal de Mantenimiento =====================
+  function renderTecnicosKPIs(){
+    const activos = tecnicos.filter(t=>t.turno==='En turno').length;
+    const allTools = Object.values(cuadrillas).flat();
+    const porVencer = allTools.filter(t=>t.status==='porvencer').length;
+    const vencidas = allTools.filter(t=>t.status==='vencido').length;
+    $('#tecnicos-kpis').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Técnicos activos</div><div class="kpi-value">${activos}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Herramientas monitoreadas</div><div class="kpi-value">${allTools.length}</div></div>
+      <div class="kpi-card accent-yellow"><div class="kpi-label">Por vencer (calibración/inspección)</div><div class="kpi-value">${porVencer}</div></div>
+      <div class="kpi-card accent-red"><div class="kpi-label">Vencidas</div><div class="kpi-value">${vencidas}</div></div>
+    `;
+  }
+
+  function renderTecnicosTable(){
+    const rows = tecnicos.map((t,idx)=>{
+      const dotColor = t.turno==='En turno' ? 'var(--green)' : 'var(--ink-dim)';
+      return `<tr class="op-row" data-rowid="tech-tools-${idx}" tabindex="0">
+          <td>${t.nombre}</td>
+          <td>${t.rol}</td>
+          <td>${t.zona}</td>
+          <td><span class="status-dot" style="background:${dotColor}"></span>${t.turno}<span class="expand-hint">ver herramientas ▾</span></td>
+        </tr>
+        <tr class="tools-detail-row" id="tech-tools-${idx}" hidden><td colspan="4">${toolsDetailHTML(t.zona)}</td></tr>`;
+    }).join('');
+    $('#tecnicos-table-wrap').innerHTML = `<table class="personal-table">
+      <thead><tr><th>Técnico</th><th>Rol</th><th>Zona / cuadrilla</th><th>Estado</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    $$('#tecnicos-table-wrap .op-row').forEach(tr=>{
+      tr.addEventListener('click', ()=>toggleToolsRow(tr.dataset.rowid));
+      tr.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); toggleToolsRow(tr.dataset.rowid); } });
+    });
+  }
+
+  // ===================== Render: Mantenimiento =====================
+  function tecnicoResponsable(zona){
+    return tecnicos.find(t=>t.zona===zona && t.rol==='Técnico de mantenimiento');
+  }
+
+  function allAlerts(){
+    const list = [];
+    vehicles.forEach(v=>{
+      COMPONENTES.forEach(c=>{
+        const comp = v.componentes[c.key];
+        const sev = severityOf(comp.score);
+        if(sev==='sano') return;
+        let eta;
+        if(sev==='critico') eta = clamp(Math.round((comp.score/50)*4), 1, 4);
+        else eta = clamp(Math.round(5 + (75-comp.score)/25*25), 5, 30);
+        const signal = SIGNAL_TEXT[c.key][sev];
+        const desc = typeof signal==='function' ? signal(comp._pct || 25) : signal;
+        const responsable = tecnicoResponsable(v.zona);
+        list.push({ vehicle:v, compKey:c.key, compLabel:c.label, score:comp.score, sev, eta, desc, accion: ACCION_TEXT[sev](eta), zona:v.zona, responsable });
+      });
+    });
+    list.sort((a,b)=>a.eta-b.eta);
+    return list;
+  }
+
+  function renderMantKPIs(alerts){
+    const monitoreados = vehicles.length * COMPONENTES.length;
+    const criticas = alerts.filter(a=>a.sev==='critico').length;
+    const vigilancia = alerts.filter(a=>a.sev==='vigilar').length;
+    const saludables = monitoreados - criticas - vigilancia;
+    $('#mant-kpis').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Componentes monitoreados</div><div class="kpi-value">${monitoreados}</div></div>
+      <div class="kpi-card accent-red"><div class="kpi-label">Alertas críticas</div><div class="kpi-value">${criticas}</div></div>
+      <div class="kpi-card accent-yellow"><div class="kpi-label">En vigilancia</div><div class="kpi-value">${vigilancia}</div></div>
+      <div class="kpi-card accent-green"><div class="kpi-label">Saludables</div><div class="kpi-value">${saludables}</div></div>
+    `;
+  }
+
+  function renderMantenimiento(){
+    const alerts = allAlerts();
+    renderMantKPIs(alerts);
+    const allCombos = vehicles.flatMap(v=>COMPONENTES.map(c=>({v,c,score:v.componentes[c.key].score})));
+    const sorted = [...allCombos].sort((a,b)=>a.score-b.score);
+    const donutItems = sorted.slice(0,4).concat(sorted.slice(-2));
+
+    $('#mant-donuts').innerHTML = donutItems.map(item=>{
+      const color = item.score<50 ? 'var(--red)' : (item.score<75 ? 'var(--yellow)' : 'var(--green)');
+      const label = item.score<50 ? 'Crítico' : (item.score<75 ? 'Vigilar' : 'Saludable');
+      return `<div class="donut-card">
+        <div class="donut-wrap">${donutSVG(item.score,color)}<div class="donut-score"><span class="num">${Math.round(item.score)}%</span><span class="lbl">${label}</span></div></div>
+        <div class="vname">${item.v.tag}</div>
+        <div class="vcomp">${item.c.label}</div>
+        <div class="vzona">${item.v.zona}</div>
+      </div>`;
+    }).join('');
+
+    $('#mant-alerts').innerHTML = alerts.length ? alerts.slice(0,8).map(a=>`
+      <div class="alert-item sev-${a.sev}">
+        <div class="a-main"><b>${a.vehicle.tag}</b> — ${a.compLabel}<div class="a-desc">${a.desc}</div>
+          <div class="a-meta">${a.zona} · Responsable: ${a.responsable ? a.responsable.nombre : '—'} · Salud actual: ${Math.round(a.score)}%</div>
+        </div>
+        <div class="a-eta">${a.accion}</div>
+      </div>`).join('') : `<p class="empty-note">Sin alertas activas.</p>`;
+
+    const criticos = alerts.filter(a=>a.sev==='critico');
+    if(criticos.length){
+      $('#mant-trend-wrap').innerHTML = criticos.map(a=>`<div class="trend-panel">
+        <h3>${a.vehicle.tag} — ${a.compLabel}</h3>
+        <div class="trend-sub">${a.zona} · Responsable: ${a.responsable ? a.responsable.nombre : '—'}</div>
+        <div class="trend-desc">${a.desc} · ${a.accion}</div>
+        ${trendSVG(a.vehicle.componentes[a.compKey].trend, 50)}
+      </div>`).join('');
+    } else {
+      $('#mant-trend-wrap').innerHTML = `<p class="empty-note">Sin componentes en estado crítico.</p>`;
+    }
+  }
+
+  // ===================== Modal de detalle de unidad =====================
+  let openModalVehicleId = null;
+
+  function renderVehicleModalBody(v){
+    let pillClass, pillText;
+    if(v.estado==='ok'){ pillClass='pill-ok'; pillText='EN RUTA: OK'; }
+    else if(v.estado==='alerta'){ pillClass='pill-alerta'; pillText='ALERTA'; }
+    else if(v.estado==='reabasteciendo'){ pillClass='pill-grifo'; pillText='ABASTECIENDO'; }
+    else { pillClass='pill-taller'; pillText='EN TALLER'; }
+    const ubicacion = v.estado==='taller' ? 'Taller central' : (v.estado==='reabasteciendo' ? `Grifo — ${v.zona}` : `${ZONA_ABBR[v.zona]} Km ${v.km}`);
+    const combustibleLabel = v.estado==='taller' ? 'Sin operación' : `${Math.round(v.combustible)}%`;
+    const compRows = COMPONENTES.map(c=>{
+      const comp = v.componentes[c.key];
+      const sev = severityOf(comp.score);
+      const color = sev==='critico' ? 'var(--red)' : (sev==='vigilar' ? 'var(--yellow)' : 'var(--green)');
+      return `<div class="vc-meta"><span>${c.label}</span><span style="color:${color};font-weight:600">${Math.round(comp.score)}%</span></div>`;
+    }).join('');
+    const histSpark = sparkSVG(v.historial.map(h=>h.combustible));
+    $('#modal-body').innerHTML = `
+      <h2 id="modal-title">${v.tag}</h2>
+      <p style="color:var(--ink-dim);margin:2px 0 14px;">${v.tipoLabel} · ${v.zona}</p>
+      <span class="pill ${pillClass}">${pillText}</span>
+      <div class="modal-grid">
+        <div class="vc-meta"><span>Operador</span><b>${v.operador ? v.operador.nombre : '-'}</b></div>
+        <div class="vc-meta"><span>Ubicación</span><b>${ubicacion}</b></div>
+        <div class="vc-meta"><span>Combustible</span><b>${combustibleLabel}</b></div>
+        <div class="vc-meta"><span>Horómetro</span><b>${fmt1(v.horometro)} h</b></div>
+        <div class="vc-meta"><span>Temp. motor</span><b>${fmt1(v.tempMotor)} °C</b></div>
+        <div class="vc-meta"><span>Presión aceite</span><b>${fmt1(v.presionAceite)} bar</b></div>
+        ${v.carga!=null ? `<div class="vc-meta"><span>Carga actual</span><b>${v.carga} / ${v.cargaMax} t</b></div>` : ''}
+      </div>
+      <h3 class="m-sub">Salud de componentes</h3>
+      ${compRows}
+      <h3 class="m-sub">Histórico de esta sesión — combustible</h3>
+      ${histSpark}
+    `;
+  }
+
+  function openVehicleModal(id){
+    const v = vehicles.find(x=>x.id===id);
+    if(!v) return;
+    openModalVehicleId = id;
+    renderVehicleModalBody(v);
+    $('#modal-overlay').removeAttribute('hidden');
+    $('#modal-close').focus();
+  }
+
+  function refreshModalIfOpen(){
+    if(!openModalVehicleId) return;
+    if($('#modal-overlay').hasAttribute('hidden')) return;
+    const v = vehicles.find(x=>x.id===openModalVehicleId);
+    if(v) renderVehicleModalBody(v);
+  }
+
+  function closeModal(){ $('#modal-overlay').setAttribute('hidden',''); openModalVehicleId = null; }
+
+  // ===================== Render all =====================
+  function renderAll(){
+    renderFlotaKPIs(); renderFiltros(); renderFlotaGrid();
+    renderOperadoresKPIs(); renderOperadoresTable();
+    renderTecnicosKPIs(); renderTecnicosTable();
+    renderMantenimiento();
+  }
+
+  function refreshActiveView(){
+    const active = $('.view.active');
+    if(!active) return;
+    if(active.id==='view-flota'){ renderFlotaKPIs(); renderFlotaGrid(); }
+    if(active.id==='view-mantenimiento'){ renderMantenimiento(); }
+  }
+
+  // ===================== Update loops =====================
+  const startTime = Date.now();
+  function tickClock(){
+    const sec = Math.floor((Date.now()-startTime)/1000);
+    $('#last-updated').textContent = sec<60 ? `actualizado hace ${sec} s` : `actualizado hace ${Math.floor(sec/60)} min`;
+  }
+
+  function tickSensores(){
+    vehicles.forEach(v=>{
+      if(v.estado==='taller'){
+        // Sin cambios mientras la unidad está detenida por falla.
+      } else if(v.refueling){
+        // En grifo/nodo de abastecimiento: combustible sube rápido, posición no avanza.
+        v.combustible = clamp(v.combustible + rand(16,26), 0, 100);
+        v.tempMotor = clamp(v.tempMotor + rand(-0.4,0.4), 70, 102);
+        v.presionAceite = clamp(v.presionAceite + rand(-0.05,0.05), 2.8, 5.8);
+        if(v.combustible>=92) v.refueling = false;
+      } else {
+        v.combustible = clamp(v.combustible + rand(-1.6,0.5), 0, 100);
+        v.tempMotor = clamp(v.tempMotor + rand(-0.4,0.4), 70, 102);
+        v.presionAceite = clamp(v.presionAceite + rand(-0.05,0.05), 2.8, 5.8);
+        if(v.carga!=null) v.carga = Math.round(clamp(v.carga + rand(-1,1), 0, v.cargaMax));
+        v.km = (parseFloat(v.km) + rand(0,0.06)).toFixed(1);
+        if(v.combustible<5) v.refueling = true;
+      }
+      if(v.estado!=='taller' && !v.refueling) v.horometro += rand(0.1,0.3);
+      v.historial.push({ t:Date.now(), combustible:v.combustible });
+      if(v.historial.length>40) v.historial.shift();
+    });
+    vehicles.forEach(recomputeEstado);
+    refreshActiveView();
+    refreshModalIfOpen();
+  }
+
+  function tickMantenimiento(){
+    vehicles.forEach(v=>{
+      COMPONENTES.forEach(c=>{
+        const comp = v.componentes[c.key];
+        const sev = severityOf(comp.score);
+        let next;
+        if(sev==='critico') next = clamp(comp.score + rand(-1.1,0.9), 20, 48);
+        else if(sev==='vigilar') next = clamp(comp.score + rand(-0.6,0.6), 51, 74);
+        else next = clamp(comp.score + rand(-0.5,0.5), 76, 99);
+        comp.score = next;
+        comp.trend.push(comp.score);
+        if(comp.trend.length>14) comp.trend.shift();
+      });
+    });
+    vehicles.forEach(recomputeEstado);
+    refreshActiveView();
+    refreshModalIfOpen();
+  }
+
+  // ===================== Event wiring =====================
+  function wireTabs(){
+    $$('.tab-btn').forEach(btn=>btn.addEventListener('click', ()=>{
+      $$('.tab-btn').forEach(b=>{ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+      $$('.view').forEach(v=>{ v.classList.remove('active'); v.setAttribute('hidden',''); });
+      const target = $('#view-'+btn.dataset.tab);
+      target.classList.add('active'); target.removeAttribute('hidden');
+    }));
+  }
+
+  function wireFiltros(){
+    $('#flota-filters').addEventListener('click', e=>{
+      const b = e.target.closest('.chip-btn');
+      if(!b) return;
+      filtros[b.dataset.fkey] = b.dataset.fval;
+      renderFiltros(); renderFlotaGrid();
+    });
+  }
+
+  function wireGridClicks(){
+    $('#flota-grid').addEventListener('click', e=>{
+      const card = e.target.closest('.vehicle-card');
+      if(!card) return;
+      openVehicleModal(card.dataset.id);
+    });
+  }
+
+  function wireModal(){
+    $('#modal-close').addEventListener('click', closeModal);
+    $('#modal-overlay').addEventListener('click', e=>{ if(e.target.id==='modal-overlay') closeModal(); });
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+  }
+
+  // ===================== Init =====================
+  function init(){
+    buildVehicles();
+    buildCuadrillas();
+    buildTecnicos();
+    renderAll();
+    tickClock();
+    wireTabs();
+    wireFiltros();
+    wireGridClicks();
+    wireModal();
+    setInterval(tickClock, 1000);
+    setInterval(tickSensores, 30000);
+    setInterval(tickMantenimiento, 60000);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
